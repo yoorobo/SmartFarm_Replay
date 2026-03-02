@@ -28,6 +28,8 @@ from domain.farm_env_manager import FarmEnvManager
 from domain.search_device_manager import SearchDeviceManager
 from domain.nursery_controller_manager import NurseryControllerManager
 from network.message_router import MessageRouter
+from network.tcp_server import TcpServer
+from network.udp_server import UdpServer
 
 
 class SystemController:
@@ -41,10 +43,18 @@ class SystemController:
         4. 시스템 상태 요약 정보 제공 (GUI 대시보드 연동)
     """
 
-    def __init__(self):
+    # ── 서버 기본 포트 ──
+    DEFAULT_TCP_PORT = 8080
+    DEFAULT_UDP_PORT = 9000
+
+    def __init__(self, tcp_port: int = None, udp_port: int = None):
         """
         모든 컴포넌트를 생성하고 의존성을 주입(DI)한다.
         아직 DB 연결은 하지 않은 상태 – start()에서 연결한다.
+
+        Args:
+            tcp_port : TCP 서버 포트 (기본: 8080)
+            udp_port : UDP 서버 포트 (기본: 9000)
         """
         # ── 1) 데이터베이스 계층 ──
         self.db_manager = DatabaseManager()
@@ -68,6 +78,21 @@ class SystemController:
             search_device_manager=self.search_device_manager,
             task_queue=self.task_queue,
         )
+
+        # ── 4) 소켓 서버 ──
+        self.tcp_server = TcpServer(
+            host="0.0.0.0",
+            port=tcp_port or self.DEFAULT_TCP_PORT,
+            message_router=self.message_router,
+        )
+        self.udp_server = UdpServer(
+            host="0.0.0.0",
+            port=udp_port or self.DEFAULT_UDP_PORT,
+            message_router=self.message_router,
+        )
+
+        # ── 5) 순환 참조 해결: router → tcp_server 연결 ──
+        self.message_router.tcp_server = self.tcp_server
 
         print("🏗️ [SystemController] 모든 컴포넌트 초기화 완료")
 
@@ -96,15 +121,21 @@ class SystemController:
         # 2) 초기 데이터 로드
         self._load_initial_data()
 
-        # 3) TODO: TCP/UDP 소켓 서버 시작
+        # 3) 소켓 서버 시작
+        self.tcp_server.start()
+        self.udp_server.start()
+
         print("\n🟢 [SystemController] 시스템이 정상적으로 시작되었습니다.")
+        print(f"   📡 TCP: 0.0.0.0:{self.tcp_server.port}")
+        print(f"   📡 UDP: 0.0.0.0:{self.udp_server.port}")
         return True
 
     # ──────────── 시스템 종료 ────────────
     def stop(self):
         """시스템을 안전하게 종료한다."""
         print("\n🔴 [SystemController] 시스템 종료 중...")
-        # TODO: 네트워크 서버 종료, 실행 중인 Task 정리
+        self.tcp_server.stop()
+        self.udp_server.stop()
         self.db_manager.disconnect()
         print("🏁 [SystemController] 시스템이 안전하게 종료되었습니다.\n")
 

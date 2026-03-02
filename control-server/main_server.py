@@ -2,60 +2,57 @@
 main_server.py
 ==============
 통합 스마트팜 자동화 시스템 – 중앙 제어 서버 진입점(Entry Point).
-AWS EC2 MySQL 서버와의 연결 테스트를 수행한다.
+
+실행:
+    python main_server.py
+
+기능:
+    1. SystemController를 통해 모든 컴포넌트 초기화
+    2. DB 연결 + 초기 데이터 로드
+    3. TCP 소켓 서버 시작 (ESP32/GUI 연결 대기)
+    4. UDP 소켓 서버 시작 (센서 데이터 수신)
+    5. Ctrl+C로 안전 종료
 """
 
-from database.db_manager import DatabaseManager
+import signal
+from core.system_controller import SystemController
 
 
 def main():
     """
     메인 함수:
-    1) DatabaseManager를 통해 EC2 MySQL에 연결
-    2) SELECT VERSION() 쿼리로 DB 버전 확인
-    3) smart_farm_v2 DB의 테이블 목록 조회
-    4) DB 연결 해제
+    SystemController를 시작하고, Ctrl+C 시그널이 올 때까지 대기한다.
     """
-    print()
-    print("🌱 ======================================== 🌱")
-    print("   통합 스마트팜 자동화 시스템 – 서버 시작")
-    print("🌱 ======================================== 🌱")
-    print()
 
-    # ── DatabaseManager를 컨텍스트 매니저로 사용 ──
-    with DatabaseManager() as db:
+    # ── SystemController 생성 ──
+    controller = SystemController(
+        tcp_port=8080,  # ESP32/GUI가 TCP로 연결할 포트
+        udp_port=9000,  # 육묘장 센서 UDP 수신 포트
+    )
 
-        # 연결 실패 시 조기 종료
-        if db.connection is None:
-            print("🚫 DB 연결에 실패하여 서버를 종료합니다.")
-            return
+    # ── 시스템 시작 ──
+    if not controller.start():
+        print("🚫 시스템 시작 실패. 종료합니다.")
+        return
 
-        # ─── 테스트 1: DB 서버 버전 확인 ───
-        print("\n📌 [테스트 1] DB 서버 버전 확인")
-        print("-" * 40)
-        version_result = db.execute_query("SELECT VERSION() AS db_version;")
-        if version_result:
-            print(f"   DB 버전: {version_result[0]['db_version']}")
-        else:
-            print("   ⚠️ 버전 정보를 가져오지 못했습니다.")
+    # ── Ctrl+C 시그널 핸들러 등록 ──
+    def signal_handler(sig, frame):
+        print("\n\n🛑 Ctrl+C 감지 – 서버를 종료합니다...")
+        controller.stop()
+        exit(0)
 
-        # ─── 테스트 2: 현재 DB의 테이블 목록 조회 ───
-        print("\n📌 [테스트 2] '{0}' 데이터베이스 테이블 목록".format(
-            DatabaseManager.DB_CONFIG["database"]
-        ))
-        print("-" * 40)
-        tables = db.execute_query("SHOW TABLES;")
-        if tables:
-            for idx, table in enumerate(tables, start=1):
-                # SHOW TABLES 결과의 키는 'Tables_in_<db명>' 형태
-                table_name = list(table.values())[0]
-                print(f"   {idx}. {table_name}")
-            print(f"\n   총 {len(tables)}개의 테이블이 조회되었습니다. ✅")
-        else:
-            print("   ⚠️ 테이블 목록을 가져오지 못했습니다.")
+    signal.signal(signal.SIGINT, signal_handler)
 
-    # with 블록 종료 → 자동으로 disconnect() 호출
-    print("\n🏁 서버 종료. 모든 테스트가 완료되었습니다.\n")
+    # ── 서버 대기 (메인 스레드 유지) ──
+    print("\n💡 서버가 실행 중입니다. 종료하려면 Ctrl+C를 누르세요.\n")
+
+    try:
+        signal.pause()  # Unix: 시그널 대기
+    except AttributeError:
+        # Windows에서는 signal.pause()가 없으므로 대체
+        import time
+        while True:
+            time.sleep(1)
 
 
 if __name__ == "__main__":

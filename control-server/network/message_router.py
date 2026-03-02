@@ -49,13 +49,15 @@ class MessageRouter:
         self.nursery_ctrl_manager = nursery_ctrl_manager
         self.search_device_manager = search_device_manager
         self.task_queue = task_queue
+        self.tcp_server = None  # SystemController에서 주입 (순환 참조 방지)
 
         # ── UDP 메시지 타입 → 핸들러 매핑 ──
         self._udp_handlers: dict[str, callable] = {
-            "SENSOR":     self._on_sensor_data,
-            "AGV_STATE":  self._on_agv_state,
-            "RFID_READ":  self._on_rfid_read,
-            "HEARTBEAT":  self._on_heartbeat,
+            "SENSOR":      self._on_sensor_data,
+            "AGV_STATE":   self._on_agv_state,
+            "ROBOT_STATE": self._on_agv_state,   # ESP32 펌웨어 호환 별칭
+            "RFID_READ":   self._on_rfid_read,
+            "HEARTBEAT":   self._on_heartbeat,
         }
 
         # ── TCP 명령 타입 → 핸들러 매핑 ──
@@ -100,18 +102,30 @@ class MessageRouter:
     # ============================================================
 
     def route_tcp(self, raw_data: str) -> dict:
-        """TCP 수신 데이터를 파싱하고 cmd에 따라 핸들러를 호출한다."""
+        """
+        TCP 수신 데이터를 파싱하고 cmd 또는 type에 따라 핸들러를 호출한다.
+        
+        ESP32 로봇은 상태를 TCP로 전송하므로 type 필드도 처리한다.
+        """
         message = self._parse_json(raw_data)
         if message is None:
             return {"status": "FAIL", "msg": "JSON 파싱 실패"}
 
+        # 1) cmd 필드가 있는 경우 (GUI → 서버 명령)
         cmd = message.get("cmd")
-        if cmd in self._tcp_handlers:
+        if cmd and cmd in self._tcp_handlers:
             print(f"📨 [TCP] '{cmd}' 명령 수신 → 핸들러 호출")
             return self._tcp_handlers[cmd](message)
-        else:
-            print(f"⚠️ [TCP] 알 수 없는 명령: {cmd}")
-            return {"status": "FAIL", "msg": f"알 수 없는 명령: {cmd}"}
+
+        # 2) type 필드가 있는 경우 (ESP32 → 서버 상태 전송)
+        msg_type = message.get("type")
+        if msg_type and msg_type in self._udp_handlers:
+            print(f"📨 [TCP] '{msg_type}' 상태 수신 → 핸들러 호출")
+            self._udp_handlers[msg_type](message)
+            return {"status": "SUCCESS", "msg": f"{msg_type} 처리 완료"}
+
+        print(f"⚠️ [TCP] 알 수 없는 메시지: {message}")
+        return {"status": "FAIL", "msg": "알 수 없는 메시지"}
 
     # ============================================================
     #  UDP 핸들러
@@ -175,6 +189,11 @@ class MessageRouter:
         """
         target_node = message.get("target_node")
         print(f"🚗 [핸들러] 이동 명령 → 목표: {target_node}")
+
+        # 로봇에 명령 포워딩
+        if self.tcp_server:
+            self.tcp_server.send_to_robots(message)
+
         return {"status": "SUCCESS", "msg": f"{target_node}으로 이동 명령 전달"}
 
     def _on_cmd_task(self, message: dict) -> dict:
@@ -211,6 +230,10 @@ class MessageRouter:
 
         if actuator_id:
             self.nursery_ctrl_manager.manual_actuator_control(actuator_id, state)
+
+        # 로봇에 명령 포워딩
+        if self.tcp_server:
+            self.tcp_server.send_to_robots(message)
 
         return {"status": "SUCCESS", "msg": f"{device} → {state} 제어 완료"}
 
