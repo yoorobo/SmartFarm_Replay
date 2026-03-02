@@ -21,8 +21,8 @@ const char* WIFI_SSID     = "SmartFarm-WIFI";
 const char* WIFI_PASSWORD = "secret";
 
 // 중앙 서버 설정
-const char* SERVER_IP   = "192.168.0.100/ 서버 IP 주소 아직 안정해짐
-const uint16_t SERVER_PORT = 8080;          // 서버 TCP 포트 이것도 미정
+const char* SERVER_IP   = "192.168.0.100";  // TODO: 서버 IP 주소 확정 후 수정
+const uint16_t SERVER_PORT = 8080;          // TODO: 서버 TCP 포트 확정 후 수정
 
 // 로봇 식별자
 const char* ROBOT_ID = "R01";

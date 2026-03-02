@@ -64,8 +64,9 @@ class UdpReceiver(QThread):
     sensor_received = pyqtSignal(dict)       # 센서 데이터 수신 시그널
     robot_state_received = pyqtSignal(dict)  # 로봇 상태 수신 시그널
 
-    def __init__(self, parent=None):
+    def __init__(self, port: int = UDP_PORT, parent=None):
         super().__init__(parent)
+        self._port = port
         self._running = True  # 스레드 실행 플래그
 
     def run(self):
@@ -78,12 +79,12 @@ class UdpReceiver(QThread):
             2) 수신 데이터를 JSON으로 파싱
             3) type 필드에 따라 sensor_received 또는 robot_state_received 시그널 emit
         """
-        print(f"📡 [UdpReceiver] UDP 수신 스레드 시작 (포트: {UDP_PORT})")
+        print(f"📡 [UdpReceiver] UDP 수신 스레드 시작 (포트: {self._port})")
 
         # ── UDP 소켓 생성 및 바인딩 ──
         udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        udp_socket.bind(("", UDP_PORT))
+        udp_socket.bind(("", self._port))
         udp_socket.settimeout(1.0)  # 1초 타임아웃 (스레드 종료 체크용)
 
         while self._running:
@@ -177,10 +178,10 @@ class TcpCommander:
             tcp_socket.settimeout(5.0)  # 5초 타임아웃
             tcp_socket.connect((self.server_ip, self.server_port))
 
-            # 명령 JSON 전송
-            json_str = json.dumps(command, ensure_ascii=False)
+            # 명령 JSON 전송 (줄바꿈으로 메시지 구분 – 서버 프로토콜)
+            json_str = json.dumps(command, ensure_ascii=False) + "\n"
             tcp_socket.sendall(json_str.encode("utf-8"))
-            print(f"📤 [TcpCommander] 명령 전송: {json_str}")
+            print(f"📤 [TcpCommander] 명령 전송: {json_str.strip()}")
 
             # 서버 응답 수신
             response_data = tcp_socket.recv(BUFFER_SIZE)
