@@ -17,11 +17,11 @@
 // ============================================================
 
 // Wi-Fi 설정
-const char* WIFI_SSID     = "SmartFarm-WIFI";
-const char* WIFI_PASSWORD = "secret";
+const char* WIFI_SSID     = "addineedu-201class_4-2.4G";
+const char* WIFI_PASSWORD = "201class4!";
 
 // 중앙 서버 설정
-const char* SERVER_IP   = "192.168.0.100/ 서버 IP 주소 아직 안정해짐
+const char* SERVER_IP   = "192.168.0.135/ 서버 IP 주소 아직 안정해짐
 const uint16_t SERVER_PORT = 8080;          // 서버 TCP 포트 이것도 미정
 
 // 로봇 식별자
