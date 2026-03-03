@@ -65,7 +65,6 @@ private:
     String uidToString(byte* uid, byte size);
 
     MFRC522* _mfrc522;      // MFRC522 인스턴스 포인터
-    SPIClass* _spi;         // 커스텀 SPI 인스턴스
 
     String _lastUID;        // 마지막으로 읽은 UID
     String _previousUID;    // 이전에 읽은 UID (중복 감지용)

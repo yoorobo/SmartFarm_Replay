@@ -12,7 +12,6 @@
 
 RFIDReader::RFIDReader()
     : _mfrc522(nullptr)
-    , _spi(nullptr)
     , _lastUID("")
     , _previousUID("")
     , _hasNewTag(false)
@@ -25,9 +24,8 @@ RFIDReader::RFIDReader()
 // ============================================================
 
 void RFIDReader::init() {
-    // 커스텀 SPI 인스턴스 생성 (VSPI 사용)
-    _spi = new SPIClass(VSPI);
-    _spi->begin(RFID_SCK_PIN, RFID_MISO_PIN, RFID_MOSI_PIN, RFID_SS_PIN);
+    // MFRC522가 사용하는 전역 SPI를 진우님 핀 맵으로 초기화
+    SPI.begin(RFID_SCK_PIN, RFID_MISO_PIN, RFID_MOSI_PIN, RFID_SS_PIN);
 
     // MFRC522 인스턴스 생성
     _mfrc522 = new MFRC522(RFID_SS_PIN, RFID_RST_PIN);

@@ -17,7 +17,7 @@
 // ============================================================
 
 // Wi-Fi 설정
-const char* WIFI_SSID     = "addinedu_201class_4-2.4G";
+const char* WIFI_SSID     = "addineedu-201class_4-2.4G";
 const char* WIFI_PASSWORD = "201class4!";
 
 // 중앙 서버 설정
