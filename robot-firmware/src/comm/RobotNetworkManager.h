@@ -163,6 +163,12 @@ private:
     /**
      * @brief SET_LOC 명령 처리.
      *        {"cmd": "SET_LOC", "node": 0, "dir": 1}
+     *
+     *        사용 시점:
+     *        - 전원 켠 직후 (초기 위치 설정)
+     *        - 로봇을 물리적으로 다른 노드로 옮긴 뒤
+     *
+     *        참고: 주행 중(GOTO)에는 교차로마다 node_idx, dir가 자동 갱신됨.
      */
     void handleSetLoc(JsonDocument& doc);
 

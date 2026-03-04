@@ -70,6 +70,8 @@ void setup() {
 
     Serial.println("\n========================================");
     Serial.println("   ✅ 초기화 완료 - 대기 중");
+    Serial.println("   [안내] 전원 켠 직후 또는 물리적으로 옮긴 뒤에는");
+    Serial.println("          서버에서 SET_LOC으로 초기 위치를 설정하세요.");
     Serial.println("========================================\n");
 }
 
