@@ -12,6 +12,7 @@
 
 MotorController::MotorController()
     : _speedForward(200)
+    , _speedBackward(120)
     , _speedSoft(200)
     , _speedHard(255)
 {
@@ -54,6 +55,15 @@ void MotorController::goForward() {
     digitalWrite(PIN_IN2, LOW);
     digitalWrite(PIN_IN4, HIGH);
     digitalWrite(PIN_IN3, LOW);
+}
+
+void MotorController::goBackward() {
+    analogWrite(PIN_ENA, _speedBackward);
+    analogWrite(PIN_ENB, _speedBackward);
+    digitalWrite(PIN_IN1, LOW);
+    digitalWrite(PIN_IN2, HIGH);
+    digitalWrite(PIN_IN4, LOW);
+    digitalWrite(PIN_IN3, HIGH);
 }
 
 void MotorController::turnLeftSoft() {
