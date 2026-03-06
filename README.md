@@ -71,21 +71,6 @@ pip install -r requirements.txt
 python app.py
 ```
 
-- **웹 UI**: http://127.0.0.1:5000 (또는 노트북 IP:5000)
+- **웹 UI** (또는 노트북 IP:5000)
 - **로봇 TCP**: 0.0.0.0:8080
 
-> 로봇 펌웨어의 `SERVER_IP`를 노트북 IP로 설정해야 합니다. 자세한 내용은 `server/README.md` 참고.
-
-### 2. 중앙 제어 서버 (control-server)
-
-```bash
-cd control-server
-pip install -r requirements.txt
-python main_server.py
-```
-
-## 데이터베이스
-
-- **AWS EC2** 위에 MySQL(MariaDB) 세팅 완료
-- DB명: `smart_farm_v2`
-- 접속 정보는 `control-server/database/db_manager.py` 에 포함
