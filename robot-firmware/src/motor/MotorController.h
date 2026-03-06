@@ -32,9 +32,6 @@ public:
     /** @brief 직진 */
     void goForward();
 
-    /** @brief 후진 (속도 120) */
-    void goBackward();
-
     /** @brief 부드러운 좌회전 (한쪽 바퀴만 구동) */
     void turnLeftSoft();
 
@@ -77,7 +74,6 @@ public:
 
     // ─────────── 속도 조회 ───────────
     int getSpeedForward() const { return _speedForward; }
-    int getSpeedBackward() const { return _speedBackward; }
     int getSpeedSoft() const { return _speedSoft; }
     int getSpeedHard() const { return _speedHard; }
 
@@ -98,7 +94,6 @@ private:
 
     // ─────────── 속도 설정 ───────────
     int _speedForward;
-    int _speedBackward;
     int _speedSoft;
     int _speedHard;
 };

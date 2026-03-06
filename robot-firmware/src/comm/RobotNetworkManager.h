@@ -121,6 +121,16 @@ public:
     RFIDReader& getRFIDReader() { return _rfidReader; }
     const RFIDReader& getRFIDReader() const { return _rfidReader; }
 
+    // ─────────── 위치 수동 설정 (시리얼 등에서 사용) ───────────
+    /**
+     * @brief 노드 이름과 방향으로 현재 위치를 수동 설정한다.
+     *        내부적으로 PathFinder와 LineFollower를 사용한다.
+     * @param nodeName 노드 이름 (예: "s06")
+     * @param dir      방향 코드 (0=N, 1=E, 2=S, 3=W)
+     * @return 설정 성공 여부
+     */
+    bool setLocationByNodeName(const char* nodeName, int dir);
+
     // ─────────── TCP 응답 전송 ───────────
     /**
      * @brief 서버에 명령 처리 결과를 TCP로 응답한다.

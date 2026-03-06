@@ -177,7 +177,7 @@ int PathFinder::calculatePath(int startIdx, int targetIdx, int startDir, char* o
         int exitDir = pathDirs[i];
         char cmd = dirDiffToChar(currentDir, exitDir);
         outPath[outLen++] = cmd;
-        currentDir = (exitDir + 2) % 4;  // 반대 방향 = 진입 후 바라보는 방향
+        currentDir = exitDir;  // 진입 후 바라보는 방향 = 나간 방향과 동일
     }
     outPath[outLen++] = 'E';
     outPath[outLen] = '\0';

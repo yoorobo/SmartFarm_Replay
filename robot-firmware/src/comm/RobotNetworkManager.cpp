@@ -382,6 +382,25 @@ void RobotNetworkManager::handleSetLoc(JsonDocument& doc) {
     sendResponse("SUCCESS", "위치 설정 완료");
 }
 
+bool RobotNetworkManager::setLocationByNodeName(const char* nodeName, int dir) {
+    if (nodeName == nullptr) {
+        Serial.println("[RobotNetworkManager] setLocationByNodeName: nodeName is null");
+        return false;
+    }
+
+    int nodeIdx = _pathFinder.nodeNameToIndex(nodeName);
+    if (nodeIdx < 0 || nodeIdx >= _pathFinder.getNodeCount()) {
+        Serial.printf("[RobotNetworkManager] setLocationByNodeName: 잘못된 노드 이름: %s\n", nodeName);
+        return false;
+    }
+
+    dir = (dir % 4 + 4) % 4;
+    _lineFollower.setLocation(nodeIdx, dir, _pathFinder.indexToNodeName(nodeIdx));
+    Serial.printf("[RobotNetworkManager] setLocationByNodeName: %s (idx=%d) dir=%d\n",
+                  nodeName, nodeIdx, dir);
+    return true;
+}
+
 void RobotNetworkManager::handleTask(JsonDocument& doc) {
     /*
      * 작업 명령 처리 (Pick-and-Place 등).

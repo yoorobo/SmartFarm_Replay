@@ -17,12 +17,12 @@
 // ============================================================
 
 // Wi-Fi 설정
-const char* WIFI_SSID     = "addineedu-201class_4-2.4G";
+const char* WIFI_SSID     = "addinedu_201class_4-2.4G";
 const char* WIFI_PASSWORD = "201class4!";
 
 // 중앙 서버 설정
-const char* SERVER_IP   = "192.168.0.135"; 
-const uint16_t SERVER_PORT = 8080;          // 서버 TCP 포트 이것도 미정
+const char* SERVER_IP   = "192.168.0.12";   // 노트북 IP
+const uint16_t SERVER_PORT = 8080;         // 서버 TCP 포트 이것도 미정
 
 // 로봇 식별자
 const char* ROBOT_ID = "R01";
@@ -37,6 +37,9 @@ const unsigned long BROADCAST_INTERVAL = 1000; // 1초
 RobotNetworkManager robotNetworkManager;
 
 unsigned long lastBroadcastTime = 0;
+
+// 시리얼 버퍼
+String serialBuffer;
 
 // ============================================================
 //  setup()
@@ -80,12 +83,75 @@ void setup() {
 // ============================================================
 
 void loop() {
+    // 시리얼을 통한 수동 위치 설정 명령 처리
+    while (Serial.available() > 0) {
+        char c = static_cast<char>(Serial.read());
+        if (c == '\n' || c == '\r') {
+            if (serialBuffer.length() > 0) {
+                // 예: SETLOC s06 N
+                Serial.printf("[Main] 시리얼 명령 수신: %s\n", serialBuffer.c_str());
+                int firstSpace = serialBuffer.indexOf(' ');
+                if (firstSpace > 0) {
+                    String cmd = serialBuffer.substring(0, firstSpace);
+                    cmd.trim();
+                    if (cmd.equalsIgnoreCase("SETLOC")) {
+                        String rest = serialBuffer.substring(firstSpace + 1);
+                        rest.trim();
+                        int secondSpace = rest.indexOf(' ');
+                        String nodeStr;
+                        String dirStr;
+                        if (secondSpace > 0) {
+                            nodeStr = rest.substring(0, secondSpace);
+                            dirStr = rest.substring(secondSpace + 1);
+                        } else {
+                            nodeStr = rest;
+                        }
+                        nodeStr.trim();
+                        dirStr.trim();
+
+                        if (nodeStr.length() == 0 || dirStr.length() == 0) {
+                            Serial.println("[Main] SETLOC 사용법: SETLOC s06 N");
+                        } else {
+                            char dirChar = dirStr.charAt(0);
+                            int dirCode = -1;
+                            switch (toupper(dirChar)) {
+                                case 'N': dirCode = 0; break;
+                                case 'E': dirCode = 1; break;
+                                case 'S': dirCode = 2; break;
+                                case 'W': dirCode = 3; break;
+                                default: break;
+                            }
+                            if (dirCode < 0) {
+                                Serial.println("[Main] 방향은 N/E/S/W 중 하나여야 합니다.");
+                            } else {
+                                if (robotNetworkManager.setLocationByNodeName(nodeStr.c_str(), dirCode)) {
+                                    Serial.printf("[Main] 위치 수동 설정 완료: %s %c\n",
+                                                  nodeStr.c_str(), toupper(dirChar));
+                                } else {
+                                    Serial.println("[Main] 위치 수동 설정 실패: 노드 이름을 확인하세요.");
+                                }
+                            }
+                        }
+                    }
+                }
+                serialBuffer = "";
+            }
+        } else {
+            serialBuffer += c;
+        }
+    }
+
     // TCP 명령 수신 및 라인트레이싱 업데이트
     robotNetworkManager.handleIncoming();
 
-    // 주기적 상태 브로드캐스트
+    // 주기적 상태 브로드캐스트 및 적외선 센서 시리얼 출력
     unsigned long currentTime = millis();
     if (currentTime - lastBroadcastTime >= BROADCAST_INTERVAL) {
+        // 적외선 센서 값 시리얼 출력 (S1~S5, 0=라인 없음, 1=라인 감지)
+        int s1, s2, s3, s4, s5;
+        robotNetworkManager.getLineFollower().getSensorValues(s1, s2, s3, s4, s5);
+        Serial.printf("[IR] S1=%d S2=%d S3=%d S4=%d S5=%d\n", s1, s2, s3, s4, s5);
+
         // 위치 좌표는 추후 구현 (현재 0, 0 전송)
         // 배터리 잔량도 추후 구현 (현재 100% 전송)
         robotNetworkManager.broadcastRobotState(ROBOT_ID, 0, 0, 100);
