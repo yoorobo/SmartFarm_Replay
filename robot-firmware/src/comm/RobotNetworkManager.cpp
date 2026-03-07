@@ -65,8 +65,8 @@ bool RobotNetworkManager::connectWiFi(const char* ssid, const char* password) {
     }
 
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.printf("\n[RobotNetworkManager] Wi-Fi 연결 성공! IP: %s\n",
-                      WiFi.localIP().toString().c_str());
+        Serial.printf("\n[RobotNetworkManager] Wi-Fi 연결 성공! IP: %s, RSSI: %ddBm\n",
+                      WiFi.localIP().toString().c_str(), WiFi.RSSI());
         return true;
     } else {
         Serial.println("\n[RobotNetworkManager] Wi-Fi 연결 실패");

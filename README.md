@@ -29,7 +29,11 @@ iot-repo-4/
 │   └── README.md
 │
 ├── robot-firmware/          # 무인 이송 시스템 ESP32 펌웨어 (C++)
-│   └── README.md
+│   ├── robot-firmware.ino
+│   └── src/
+│
+├── esp32-cam/               # ESP32-CAM WiFi 웹캠 펌웨어 (UDP 스트리밍)
+│   └── esp32-cam.ino
 │
 ├── farm-firmware/           # 육묘 시스템 환경 제어 ESP32 펌웨어 (C++)
 │   └── README.md

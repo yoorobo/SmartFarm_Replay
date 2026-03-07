@@ -10,6 +10,7 @@
  *   - UDP 상태 브로드캐스트
  */
 
+#include <WiFi.h>
 #include "src/comm/RobotNetworkManager.h"
 
 // ============================================================
@@ -17,11 +18,11 @@
 // ============================================================
 
 // Wi-Fi 설정
-const char* WIFI_SSID     = "addinedu_201class_4-2.4G";
-const char* WIFI_PASSWORD = "201class4!";
+const char *ssid = "U+net2890";           // WiFi 2.4G SSID
+const char *password = "5000008772";       // WiFi 비밀번호
 
 // 중앙 서버 설정
-const char* SERVER_IP   = "192.168.0.12";   // 노트북 IP
+const char* SERVER_IP   = "192.168.219.158";   // 노트북 IP
 const uint16_t SERVER_PORT = 8080;         // 서버 TCP 포트 이것도 미정
 
 // 로봇 식별자
@@ -147,6 +148,14 @@ void loop() {
     // 주기적 상태 브로드캐스트 및 적외선 센서 시리얼 출력
     unsigned long currentTime = millis();
     if (currentTime - lastBroadcastTime >= BROADCAST_INTERVAL) {
+        // WiFi 상태 시리얼 출력
+        if (WiFi.status() == WL_CONNECTED) {
+            Serial.printf("[WiFi] 연결됨 %s (RSSI: %ddBm)\n",
+                          WiFi.localIP().toString().c_str(), WiFi.RSSI());
+        } else {
+            Serial.println("[WiFi] 끊김 - 재연결 대기");
+        }
+
         // 적외선 센서 값 시리얼 출력 (S1~S5, 0=라인 없음, 1=라인 감지)
         int s1, s2, s3, s4, s5;
         robotNetworkManager.getLineFollower().getSensorValues(s1, s2, s3, s4, s5);

@@ -112,6 +112,35 @@
         .badge.SENT    { background: #58a6ff33; color: #58a6ff; }
         .badge.COMPLETED { background: #3fb95033; color: #3fb950; }
         .robots { font-size: 0.85rem; color: #8b949e; }
+        .camera-container {
+            position: relative;
+            background: var(--bg);
+            border-radius: 6px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 180px;
+        }
+        .camera-img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        .camera-placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #8b949e;
+            font-size: 0.9rem;
+            text-align: center;
+            padding: 1rem;
+        }
+        .camera-placeholder small { font-size: 0.75rem; margin-top: 0.5rem; }
     </style>
 </head>
 <body>
@@ -163,6 +192,17 @@
         </div>
 
         <div class="card">
+            <h2 style="font-size:1rem;margin-top:0">ESP32-CAM 뷰</h2>
+            <div class="camera-container">
+                <img id="cameraStream" src="/api/camera/stream" alt="ESP32-CAM 스트림" class="camera-img" />
+                <div id="cameraPlaceholder" class="camera-placeholder">
+                    카메라 연결 대기 중...<br><small>ESP32-CAM 전원 및 서버 IP(udpAddress) 설정 확인</small>
+                </div>
+            </div>
+            <div class="robots" id="cameraStatus">카메라: 확인 중...</div>
+        </div>
+
+        <div class="card">
             <h2 style="font-size:1rem;margin-top:0">최근 작업</h2>
             <ul class="task-list" id="taskList"></ul>
         </div>
@@ -179,6 +219,9 @@
         const robotStatus = document.getElementById('robotStatus');
         const robotStateEl = document.getElementById('robotState');
         const taskList = document.getElementById('taskList');
+        const cameraStream = document.getElementById('cameraStream');
+        const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+        const cameraStatus = document.getElementById('cameraStatus');
 
         function showMsg(text, type) {
             msg.textContent = text;
@@ -219,6 +262,24 @@
                 })
                 .catch(() => { robotStateEl.textContent = '상태: 조회 실패'; });
         }
+
+        function loadCameraStatus() {
+            fetch('/api/camera/status')
+                .then(r => r.json())
+                .then(d => {
+                    if (d.ok && d.connected) {
+                        cameraStatus.textContent = '카메라: 연결됨' + (d.fps ? ` (${d.fps} FPS)` : '');
+                        cameraPlaceholder.style.display = 'none';
+                    } else {
+                        cameraStatus.textContent = '카메라: 연결 대기 중';
+                        cameraPlaceholder.style.display = 'flex';
+                    }
+                })
+                .catch(() => { cameraStatus.textContent = '카메라: 확인 실패'; });
+        }
+
+        cameraStream.onload = () => { cameraPlaceholder.style.display = 'none'; };
+        cameraStream.onerror = () => { cameraPlaceholder.style.display = 'flex'; };
 
         function loadTasks() {
             fetch('/api/tasks')
@@ -295,9 +356,11 @@
         loadRobots();
         loadTasks();
         loadRobotState();
+        loadCameraStatus();
         setInterval(loadRobots, 5000);
         setInterval(loadTasks, 5000);
         setInterval(loadRobotState, 2000);
+        setInterval(loadCameraStatus, 2000);
     </script>
 </body>
 </html>
