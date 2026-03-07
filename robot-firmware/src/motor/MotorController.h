@@ -96,6 +96,7 @@ private:
     int _speedForward;
     int _speedSoft;
     int _speedHard;
+    int _speedSoftSlow;   // 라인 추종 부드러운 회전 시 느린 쪽 모터 속도
 };
 
 #endif // MOTOR_CONTROLLER_H

@@ -382,6 +382,32 @@ def camera_status():
     })
 
 
+@app.route("/api/send_path", methods=["POST"])
+def send_path():
+    """경로 직접 전송 (MOVE + path). L=좌회전, R=우회전, U=U턴, S=직진, E=종료"""
+    data = request.get_json() or request.form
+    path = (data.get("path") or "").strip().upper()
+    robot_id = (data.get("robot_id") or "R01").strip() or None
+
+    if not path:
+        return jsonify({"ok": False, "error": "경로를 입력하세요. (예: SE, LRS, 12345)"}), 400
+
+    valid_chars = set("LRUSE12345")
+    if not all(c in valid_chars for c in path):
+        return jsonify({
+            "ok": False,
+            "error": "유효하지 않은 문자. L,R,U,S,E 또는 1,2,3,4,5 만 사용",
+        }), 400
+
+    cmd = {"cmd": "MOVE", "path": path}
+    if send_to_robot(robot_id, cmd):
+        return jsonify({"ok": True, "message": f"경로 '{path}' 전송 완료"})
+    return jsonify({
+        "ok": False,
+        "error": "연결된 로봇이 없습니다. 로봇 전원과 Wi-Fi 연결을 확인하세요.",
+    }), 503
+
+
 @app.route("/api/set_location", methods=["POST"])
 def set_location():
     """현재 로봇 위치를 수동으로 설정 (SET_LOC)"""

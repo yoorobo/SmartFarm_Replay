@@ -82,6 +82,16 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
+        .path-btn {
+            width: auto;
+            padding: 0.4rem 0.6rem;
+            margin-top: 0;
+            font-size: 0.9rem;
+        }
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
         .status {
             font-size: 0.85rem;
             margin-top: 0.5rem;
@@ -161,6 +171,22 @@
         </div>
 
         <div class="card">
+            <label for="pathInput">경로 직접 입력</label>
+            <input type="text" id="pathInput" placeholder="예: SE, LRS (L=좌 R=우 U=U턴 S=직진 E=종료)" maxlength="32"
+                style="width:100%;padding:0.6rem 0.8rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:1rem;margin-bottom:0.5rem" />
+            <div style="display:flex;gap:0.3rem;flex-wrap:wrap;margin-bottom:0.5rem">
+                <button type="button" class="path-btn" data-path="S">S</button>
+                <button type="button" class="path-btn" data-path="SE">SE</button>
+                <button type="button" class="path-btn" data-path="L">L</button>
+                <button type="button" class="path-btn" data-path="R">R</button>
+                <button type="button" class="path-btn" data-path="LRS">LRS</button>
+                <button type="button" class="path-btn" data-path="RSE">RSE</button>
+            </div>
+            <button id="btnSendPath" type="button">경로 전송</button>
+            <div id="pathMsg" class="status" style="display:none"></div>
+        </div>
+
+        <div class="card">
             <label for="locNode">현재 위치 설정</label>
             <select id="locNode">
                 <option value="">-- 노드 선택 --</option>
@@ -212,6 +238,9 @@
         const dest = document.getElementById('destination');
         const btn = document.getElementById('btnSend');
         const msg = document.getElementById('msg');
+        const pathInput = document.getElementById('pathInput');
+        const btnSendPath = document.getElementById('btnSendPath');
+        const pathMsg = document.getElementById('pathMsg');
         const locNode = document.getElementById('locNode');
         const locDir = document.getElementById('locDir');
         const btnSetLoc = document.getElementById('btnSetLoc');
@@ -233,6 +262,12 @@
             locMsg.textContent = text;
             locMsg.className = 'status ' + type;
             locMsg.style.display = 'block';
+        }
+
+        function showPathMsg(text, type) {
+            pathMsg.textContent = text;
+            pathMsg.className = 'status ' + type;
+            pathMsg.style.display = 'block';
         }
 
         function loadRobots() {
@@ -320,6 +355,37 @@
                     showMsg('네트워크 오류: ' + e.message, 'error');
                 })
                 .finally(() => { btn.disabled = false; });
+        });
+
+        document.querySelectorAll('.path-btn').forEach(el => {
+            el.addEventListener('click', () => {
+                pathInput.value = el.dataset.path;
+            });
+        });
+        btnSendPath.addEventListener('click', () => {
+            const val = pathInput.value.trim();
+            if (!val) {
+                showPathMsg('경로를 입력하세요. (예: SE, LRS)', 'error');
+                return;
+            }
+            btnSendPath.disabled = true;
+            fetch('/api/send_path', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: val })
+            })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.ok) {
+                        showPathMsg(d.message || '전송 완료', 'success');
+                    } else {
+                        showPathMsg(d.error || '전송 실패', 'error');
+                    }
+                })
+                .catch(e => {
+                    showPathMsg('네트워크 오류: ' + e.message, 'error');
+                })
+                .finally(() => { btnSendPath.disabled = false; });
         });
 
         btnSetLoc.addEventListener('click', () => {

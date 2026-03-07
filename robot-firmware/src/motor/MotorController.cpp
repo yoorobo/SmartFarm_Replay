@@ -3,19 +3,10 @@
  * ===================
  * ESP32 로봇 모터 및 센서 제어 구현 파일.
  *
- * [모터 드라이버]
- *   - 기존: L298N (ENA/ENB + IN1~IN4)
- *   - 현재: Dual H-Bridge L9110S
- *
- * L9110S 특성:
- *   - 모터 1: IA, IB
- *   - 모터 2: IA, IB
- *   - 별도의 EN 핀이 없으며, 두 입력 핀 중 하나에 PWM을 걸어 속도 제어.
- *
- * 이 구현에서는:
- *   - 좌측 모터: IN1(IA), IN2(IB)
- *   - 우측 모터: IN3(IA), IN4(IB)
- *   - ENA/ENB 핀은 더 이상 사용하지 않지만, OUTPUT LOW로 유지한다.
+ * [모터 드라이버: L298N]
+ *   - ENA, ENB: PWM으로 속도 제어 (0이면 모터 비활성화)
+ *   - IN1, IN2: 좌측 모터 방향 (H/L)
+ *   - IN3, IN4: 우측 모터 방향 (H/L)
  */
 
 #include "MotorController.h"
@@ -26,8 +17,9 @@
 
 MotorController::MotorController()
     : _speedForward(150)
-    , _speedSoft(150)
-    , _speedHard(165)
+    , _speedSoft(200)
+    , _speedHard(150)
+    , _speedSoftSlow(120)   // 부드러운 회전 시 느린 쪽 모터 속도
 {
 }
 
@@ -62,91 +54,71 @@ void MotorController::init() {
 // ============================================================
 
 void MotorController::goForward() {
-    // 좌측 모터: 전진 (IN1=PWM, IN2=LOW)
-    analogWrite(PIN_IN1, _speedForward);
+    // L298N: IN1/IN2 방향, ENA 속도 | IN3/IN4 방향, ENB 속도
+    digitalWrite(PIN_IN1, HIGH);
     digitalWrite(PIN_IN2, LOW);
-
-    // 우측 모터: 전진 (IN3=PWM, IN4=LOW)
-    analogWrite(PIN_IN3, _speedForward);
+    digitalWrite(PIN_IN3, HIGH);
     digitalWrite(PIN_IN4, LOW);
-
-    // ENA/ENB는 사용하지 않으므로 LOW 유지
-    analogWrite(PIN_ENA, 0);
-    analogWrite(PIN_ENB, 0);
+    analogWrite(PIN_ENA, _speedForward);
+    analogWrite(PIN_ENB, _speedForward);
 }
 
 void MotorController::turnLeftSoft() {
-    // 좌측 모터 정지, 우측 모터만 전진
-    analogWrite(PIN_IN1, 0);
+    // 좌측 느리게, 우측 빠르게 → 좌회전
+    digitalWrite(PIN_IN1, HIGH);
     digitalWrite(PIN_IN2, LOW);
-
-    analogWrite(PIN_IN3, _speedSoft);
+    digitalWrite(PIN_IN3, HIGH);
     digitalWrite(PIN_IN4, LOW);
-
-    analogWrite(PIN_ENA, 0);
-    analogWrite(PIN_ENB, 0);
+    analogWrite(PIN_ENA, _speedSoftSlow);
+    analogWrite(PIN_ENB, _speedSoft);
 }
 
 void MotorController::turnRightSoft() {
-    // 우측 모터 정지, 좌측 모터만 전진
-    analogWrite(PIN_IN3, 0);
-    digitalWrite(PIN_IN4, LOW);
-
-    analogWrite(PIN_IN1, _speedSoft);
+    // 좌측 빠르게, 우측 느리게 → 우회전
+    digitalWrite(PIN_IN1, HIGH);
     digitalWrite(PIN_IN2, LOW);
-
-    analogWrite(PIN_ENA, 0);
-    analogWrite(PIN_ENB, 0);
+    digitalWrite(PIN_IN3, HIGH);
+    digitalWrite(PIN_IN4, LOW);
+    analogWrite(PIN_ENA, _speedSoft);
+    analogWrite(PIN_ENB, _speedSoftSlow);
 }
 
 void MotorController::turnLeftHard() {
     // 좌측 후진, 우측 전진 → 제자리 좌회전
-    analogWrite(PIN_IN1, 0);
-    analogWrite(PIN_IN2, _speedHard);
-
-    analogWrite(PIN_IN3, _speedHard);
+    digitalWrite(PIN_IN1, LOW);
+    digitalWrite(PIN_IN2, HIGH);
+    digitalWrite(PIN_IN3, HIGH);
     digitalWrite(PIN_IN4, LOW);
-
-    analogWrite(PIN_ENA, 0);
-    analogWrite(PIN_ENB, 0);
+    analogWrite(PIN_ENA, _speedHard);
+    analogWrite(PIN_ENB, _speedHard);
 }
 
 void MotorController::turnRightHard() {
     // 좌측 전진, 우측 후진 → 제자리 우회전
-    analogWrite(PIN_IN1, _speedHard);
+    digitalWrite(PIN_IN1, HIGH);
     digitalWrite(PIN_IN2, LOW);
-
-    analogWrite(PIN_IN3, 0);
-    analogWrite(PIN_IN4, _speedHard);
-
-    analogWrite(PIN_ENA, 0);
-    analogWrite(PIN_ENB, 0);
+    digitalWrite(PIN_IN3, LOW);
+    digitalWrite(PIN_IN4, HIGH);
+    analogWrite(PIN_ENA, _speedHard);
+    analogWrite(PIN_ENB, _speedHard);
 }
 
 void MotorController::uTurnRight() {
-    // 우회전 U턴: 좌측 전진, 우측 후진을 조금 더 강하게/오래
-    analogWrite(PIN_IN1, _speedHard);
+    // 우회전 U턴: 좌측 전진, 우측 후진
+    digitalWrite(PIN_IN1, HIGH);
     digitalWrite(PIN_IN2, LOW);
-
-    analogWrite(PIN_IN3, 0);
-    analogWrite(PIN_IN4, _speedHard);
-
-    analogWrite(PIN_ENA, 0);
-    analogWrite(PIN_ENB, 0);
+    digitalWrite(PIN_IN3, LOW);
+    digitalWrite(PIN_IN4, HIGH);
+    analogWrite(PIN_ENA, _speedHard);
+    analogWrite(PIN_ENB, _speedHard);
 }
 
 void MotorController::stop() {
-    // 모든 PWM 0, 모든 방향핀 LOW
-    analogWrite(PIN_IN1, 0);
-    analogWrite(PIN_IN2, 0);
-    analogWrite(PIN_IN3, 0);
-    analogWrite(PIN_IN4, 0);
-
+    // L298N: ENA/ENB=0 이면 모터 비활성화
     digitalWrite(PIN_IN1, LOW);
     digitalWrite(PIN_IN2, LOW);
     digitalWrite(PIN_IN3, LOW);
     digitalWrite(PIN_IN4, LOW);
-
     analogWrite(PIN_ENA, 0);
     analogWrite(PIN_ENB, 0);
 }
