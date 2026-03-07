@@ -16,15 +16,15 @@
 //  Wi-Fi 설정
 // ═══════════════════════════════════════════════════════════════
 
-#define WIFI_SSID     "YOUR_WIFI_SSID"
-#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
+#define WIFI_SSID     "addinedu_201class_3-2.4G"
+#define WIFI_PASSWORD "201class3!"
 
 // ═══════════════════════════════════════════════════════════════
 //  서버(노트북) IP
 // ═══════════════════════════════════════════════════════════════
 // 노트북 IP 확인: Linux `hostname -I` / Windows `ipconfig`
 
-#define SERVER_IP "192.168.0.xxx"
+#define SERVER_IP "192.168.0.12"
 
 // ═══════════════════════════════════════════════════════════════
 //  서버 포트
