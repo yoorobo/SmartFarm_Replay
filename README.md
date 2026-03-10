@@ -20,7 +20,6 @@
 
 ```text
 iot-repo-4/
-├── .env.example             # 환경 설정 템플릿 (DB, 포트)
 ├── control-server/          # 🖥️ Python 통합 중앙 제어 서버
 │   ├── main_server.py       # 서버 진입점 (Flask 5001, TCP 8000, UDP 7070)
 │   ├── requirements.txt     # Python 파이썬 의존성 패키지
@@ -51,39 +50,24 @@ iot-repo-4/
 | 모듈 / 컴포넌트 | 언어 / 프레임워크 | 역할 |
 |---|---|---|
 | **Control Server** | Python, Flask, pymysql | 중앙 제어 서버, REST API 제공 및 백그라운드 태스크 |
-| **Database** | MySQL (Local) | 센서 로그, 사용자, 시스템 상태 데이터 저장 |
+| **Database** | MySQL (AWS/Cloud) | 센서 로그, 사용자, 시스템 상태 데이터 저장 |
 | **Web Dashboard** | HTML5, Vanilla JS, CSS3 | 관리자 실시간 관제 대시보드 (SPA) |
 | **Network Protocol** | SFAM (자체제작 Binary) | 기기간(로봇, 육묘장 ↔ 서버) 고속 및 저용량 통신 |
 | **AGV Firmware** | C++ (Arduino/ESP32) | 무인 로봇 주행, 위치, RFID 스캔 제어 |
 | **Farm Firmware** | C++ (Arduino/ESP32) | 육묘장 센서 측정 및 카메라 스트리밍 제어 |
 
-## ⚙️ 환경 설정 및 실행 방법
+### 1. 통합 제어 서버 접속 및 실행 (`control-server`)
 
-### 1. 데이터베이스 베이스라인 설정
-프로젝트는 내부적으로 MySQL 데이터베이스를 사용합니다. 데이터베이스명(`sfam_db`)을 생성해두어야 합니다.
-*(서버 기동 시 `init_db.py`에 의해 테이블 및 마스터 데이터가 자동 생성됩니다.)*
-
-### 2. `.env` 파일 설정
+현재 팀 공용 **AWS 클라우드 DB** 접속 정보가 코드(`db_config.py`)에 기본으로 세팅되어 있습니다. 따라서 별도의 DB 설치나 `.env` 환경변수 세팅 없이, 아래 명령어만으로 바로 서버를 실행할 수 있습니다.
 
 ```bash
-# 저장소 루트(또는 control-server 폴더 내)에 .env 설정
-cp .env.example .env
-
-# .env 파일 편집
-DB_HOST=127.0.0.1
-DB_USER=root
-DB_PASSWORD=YOUR_DB_PASSWORD
-DB_NAME=sfam_db
-SECRET_KEY=yoursecretkey
-```
-
-### 3. 통합 제어 서버 실행 (`control-server`)
-
-```bash
+# 1. 제어 서버 폴더로 이동
 cd control-server
+
+# 2. 필수 라이브러리 설치
 pip install -r requirements.txt
 
-# 서버 실행
+# 3. 서버 실행
 python main_server.py
 ```
 
@@ -92,7 +76,7 @@ python main_server.py
 - **AGV TCP 통신 포트**: `8000`
 - **카메라 UDP 스트리밍 포트**: `7070`
 
-### 4. 시뮬레이션 테스트
+### 2. 시뮬레이션 테스트
 하드웨어 없이 소프트웨어 로직(RFID 입고 ~ 로봇 이동완료)을 테스트하려면 별도 터미널에서 다음 스크립트를 실행합니다.
 
 ```bash
