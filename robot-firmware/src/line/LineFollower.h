@@ -56,8 +56,9 @@ public:
     /**
      * @brief 생성자
      * @param motor MotorController 참조
+     * @param arm   ServoArmController 참조
      */
-    explicit LineFollower(MotorController& motor);
+    explicit LineFollower(MotorController& motor, ServoArmController& arm);
 
     // ─────────── 경로 설정 ───────────
 
@@ -179,6 +180,7 @@ private:
     // ─────────── 멤버 변수 ───────────
 
     MotorController& _motor;    // 모터 컨트롤러 참조
+    ServoArmController& _arm;   // 서보 팔 컨트롤러 참조
 
     String _pathString;         // 경로 문자열 (숫자 또는 LRUSE)
     int _currentStep;           // 현재 경로 단계

@@ -37,7 +37,8 @@
 #include "../motor/MotorController.h"
 #include "../line/LineFollower.h"
 #include "../path/PathFinder.h"
-#include "../rfid/RFIDReader.h"
+#include "../sensor/RFIDReader.h"
+#include "../motor/ServoArmController.h"
 
 /**
  * @brief ESP32 로봇의 네트워크 통신을 총괄하는 매니저 클래스.
@@ -233,12 +234,13 @@ private:
 
     void processSfamPacket(const uint8_t* pkt, uint8_t payLen);
 
-    // ─────────── 모터 및 라인트레이싱 ───────────
+    // ─────────── 모터, 라인트레이싱, 팔 제어 ───────────
     MotorController _motorController;   // 모터 컨트롤러
-    LineFollower    _lineFollower;      // 라인트레이서
-    PathFinder      _pathFinder;        // BFS 경로 탐색
+    LineFollower    _lineFollower;      // 라인트레이싱 모듈
+    PathFinder      _pathFinder;        // 경로 탐색기 (최단거리 계산)
+    ServoArmController _armController;  // [추가] 16번, 17번 서보 팔 제어기
 
-    // ─────────── RFID ───────────
+    // ─────────── 센서 ───────────
     RFIDReader      _rfidReader;        // RFID 리더
 };
 

@@ -26,12 +26,13 @@ RobotNetworkManager::RobotNetworkManager()
     , _lastReconnectAttempt(0)
     , _lastHeartbeatMs(0)
     , _sfamSeq(0)
-    , _currentTaskId(0)
     , _rxSfamCount(0)
     , _rxSfamPayLen(0)
     , _motorController()
-    , _lineFollower(_motorController)
+    , _armController()
+    , _lineFollower(_motorController, _armController)
 {
+
     memset(_recvBuffer, 0, sizeof(_recvBuffer));
     memset(_rxSfamBuf, 0, sizeof(_rxSfamBuf));
     Serial.println("[RobotNetworkManager] 초기화 완료");
@@ -43,7 +44,9 @@ RobotNetworkManager::RobotNetworkManager()
 
 void RobotNetworkManager::initHardware() {
     _motorController.init();
+    _lineFollower.stop();
     _rfidReader.init();
+    _armController.init();
     _pathFinder.initGraph();
     Serial.println("[RobotNetworkManager] 하드웨어 초기화 완료");
 }
@@ -573,21 +576,29 @@ bool RobotNetworkManager::setLocationByNodeName(const char* nodeName, int dir) {
 void RobotNetworkManager::handleTask(JsonDocument& doc) {
     /*
      * 작업 명령 처리 (Pick-and-Place 등).
-     * 수신: {"cmd": "TASK", "action": "PICK_AND_PLACE", "count": 5}
-     *
-     * TODO (팀원 구현):
-     *   1) action, count 값 추출
-     *   2) action이 "PICK_AND_PLACE"인 경우:
-     *   3) 작업 완료 후 sendResponse() 호출
+     * 수신: {"cmd": "TASK", "action": "PICK_READY"}
+     *       {"cmd": "TASK", "action": "PICK_EXECUTE"}
+     *       {"cmd": "TASK", "action": "DROP"}
      */
     const char* action = doc["action"];
     int count = doc["count"] | 1;  // 기본값 1
     Serial.printf("[RobotNetworkManager] 작업 명령 수신 → 동작: %s, 횟수: %d\n", action, count);
 
-    // TODO: so-arm 제어 로직 구현
-    // ArmController::pickAndPlace(count);
-
-    sendResponse("SUCCESS", "작업 명령 수신 확인");
+    if (strcmp(action, "PICK_READY") == 0) {
+        _armController.pickReady();
+        sendResponse("SUCCESS", "픽업 준비(그리퍼 열기, 팔 내리기) 완료");
+    } 
+    else if (strcmp(action, "PICK_EXECUTE") == 0) {
+        _armController.pickExecute();
+        sendResponse("SUCCESS", "픽업 실행(그리퍼 닫기, 팔 올리기) 완료");
+    }
+    else if (strcmp(action, "DROP") == 0) {
+        _armController.dropPot();
+        sendResponse("SUCCESS", "화분 내려놓기 완료");
+    }
+    else {
+        sendResponse("FAIL", "알 수 없는 작업 명령");
+    }
 }
 
 void RobotNetworkManager::handleManual(JsonDocument& doc) {

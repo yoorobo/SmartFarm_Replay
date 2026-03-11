@@ -218,9 +218,36 @@ void LineFollower::executeCrossroadCommand() {
     // 경로 끝 확인
     if (_currentStep >= (int)_pathString.length()) {
         _state = RobotState::ARRIVED;
-        _nodeName = "도착";
+        if (_pathNodeCount > 0 && _currentStep < _pathNodeCount) {
+            _currentIdx = _pathNodeSeq[_currentStep];
+            _nodeName = getRealNodeName(_currentIdx);
+        } else {
+            _nodeName = "도착";
+        }
         _isRunning = false;
         Serial.println("[LineFollower] ✅ 목적지 도착");
+        
+        // --- [자동 픽업 로직] 목적지가 입고장(A01, index 0)인 경우 ---
+        if (_currentIdx == 0) {
+            Serial.println("[LineFollower] 목적지 A01(입고장) 감지 -> 자율 픽업 시퀀스 시작!");
+            
+            // 1. 픽업 준비 (그리퍼 열기, 팔 내리기)
+            _arm.pickReady();
+            
+            // 2. 후진하여 트레이와 밀착 (약 0.5초 ~ 1초 후진, 하드웨어 테스트 후 시간 조정 필요)
+            Serial.println("[LineFollower] 픽업을 위해 후진하여 트레이에 밀착...");
+            _motor.goBackward();
+            delay(800);  // 800ms 후진 (임시값)
+            _motor.stop();
+            delay(500);  // 안정화 대기
+            
+            // 3. 픽업 실행 (그리퍼 닫기, 팔 올리기)
+            _arm.pickExecute();
+            
+            Serial.println("[LineFollower] 자율 픽업 시퀀스 완료!");
+        }
+        // -------------------------------------------------------------
+        
         return;
     }
 
@@ -246,6 +273,20 @@ void LineFollower::executeCrossroadCommand() {
             }
             _isRunning = false;
             Serial.println("[LineFollower] ✅ 목적지 도착 (E 명령)");
+            
+            // --- [자동 픽업 로직] 목적지가 입고장(A01, index 0)인 경우 ---
+            if (_currentIdx == 0) {
+                Serial.println("[LineFollower] 목적지 A01(입고장) 감지 -> 자율 픽업 시퀀스 시작!");
+                _arm.pickReady();
+                _motor.goBackward();
+                delay(800);  // 밀착 전진 (필요 시 시간 조절)
+                _motor.stop();
+                delay(500);
+                _arm.pickExecute();
+                Serial.println("[LineFollower] 자율 픽업 시퀀스 완료!");
+            }
+            // -------------------------------------------------------------
+            
             break;
 
         case PathCommand::LEFT: {
