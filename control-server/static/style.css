@@ -678,8 +678,8 @@ body {
     background: rgba(22, 27, 34, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 16px;
-    width: 600px;
-    max-width: 90%;
+    width: 850px;
+    max-width: 95%;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
     transform: scale(1);
     transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -726,7 +726,7 @@ body {
 
 .placeholder-cam {
     width: 100%;
-    height: 150px;
+    height: 300px;
     background: #000;
     border-radius: 8px;
     display: flex;
@@ -801,6 +801,57 @@ input:checked+.slider:before {
 
 .large {
     width: 800px;
+}
+
+/* Modal Chart Section */
+.modal-chart-container {
+    grid-column: span 2;
+    margin-top: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 15px;
+    border-radius: 12px;
+    height: 250px;
+}
+
+/* Modal Info Footer */
+.modal-info-footer {
+    grid-column: span 2;
+    margin-top: 20px;
+    padding: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-around;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.info-item .label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-item .value {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 0 10px rgba(66, 211, 146, 0.3);
+}
+
+#node-crop-name {
+    color: var(--accent-blue);
+}
+
+#node-incoming-date, #node-outgoing-date {
+    color: var(--node-active);
 }
 
 /* Table */

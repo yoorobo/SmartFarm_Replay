@@ -136,20 +136,30 @@ def handle_hardware_client(client_socket, addr):
                             try:
                                 with conn.cursor() as cursor:
                                     now = datetime.now()
-                                    # 예시로 sensor_id 1:온도, 2:습도, 3:조도로 가정하여 저장합니다.
-                                    # 실제 구축 시 nursery_sensors 테이블을 참조할 수 있습니다.
-                                    cursor.execute(
-                                        "INSERT INTO nursery_sensor_logs (sensor_id, value, measured_at) VALUES (%s, %s, %s)",
-                                        (1, temp, now)
-                                    )
-                                    cursor.execute(
-                                        "INSERT INTO nursery_sensor_logs (sensor_id, value, measured_at) VALUES (%s, %s, %s)",
-                                        (2, hum, now)
-                                    )
-                                    cursor.execute(
-                                        "INSERT INTO nursery_sensor_logs (sensor_id, value, measured_at) VALUES (%s, %s, %s)",
-                                        (3, light, now)
-                                    )
+                                    # 해당 노드의 컨트롤러 및 센서 ID 찾기 (없으면 생성)
+                                    # node_name: S11, S12 등
+                                    cursor.execute("SELECT controller_id FROM nursery_controllers WHERE node_id = %s LIMIT 1", (node_name,))
+                                    ctrl_res = cursor.fetchone()
+                                    if not ctrl_res:
+                                        ctrl_id = f"CTRL_{node_name}"
+                                        cursor.execute("INSERT IGNORE INTO nursery_controllers (controller_id, node_id) VALUES (%s, %s)", (ctrl_id, node_name))
+                                    else:
+                                        ctrl_id = ctrl_res['controller_id']
+                                    
+                                    sensor_ids = {}
+                                    for s_type_id in [1, 2, 3]: # Temp=1, Humi=2, Light=3
+                                        cursor.execute("SELECT sensor_id FROM nursery_sensors WHERE controller_id = %s AND sensor_type_id = %s", (ctrl_id, s_type_id))
+                                        s_res = cursor.fetchone()
+                                        if not s_res:
+                                            cursor.execute("INSERT INTO nursery_sensors (controller_id, sensor_type_id, pin_number) VALUES (%s, %s, 0)", (ctrl_id, s_type_id))
+                                            sensor_ids[s_type_id] = cursor.lastrowid
+                                        else:
+                                            sensor_ids[s_type_id] = s_res['sensor_id']
+
+                                    # 로그 삽입
+                                    if sensor_ids.get(1): cursor.execute("INSERT INTO nursery_sensor_logs (sensor_id, value, measured_at) VALUES (%s, %s, %s)", (sensor_ids[1], temp, now))
+                                    if sensor_ids.get(2): cursor.execute("INSERT INTO nursery_sensor_logs (sensor_id, value, measured_at) VALUES (%s, %s, %s)", (sensor_ids[2], hum, now))
+                                    if sensor_ids.get(3): cursor.execute("INSERT INTO nursery_sensor_logs (sensor_id, value, measured_at) VALUES (%s, %s, %s)", (sensor_ids[3], light, now))
                                 conn.commit()
                             except Exception as e:
                                 print(f"Nursery Sensor DB Error: {e}")

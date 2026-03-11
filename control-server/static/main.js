@@ -2,6 +2,7 @@
 
 let agvRobotId = "R01";
 let currentRobotNode = null;
+let nodeDetailChart = null;
 
 // Initialize on load
 document.addEventListener("DOMContentLoaded", () => {
@@ -213,7 +214,36 @@ function openNodeModal(nodeId) {
     document.getElementById('modal-title').innerText = `상세 관제: ${nodeId.toUpperCase()}`;
     document.getElementById('node-modal').classList.remove('hidden');
 
-    // Set dummy state
+    // Reset fields
+    document.getElementById('node-crop-name').innerText = "조회 중...";
+    document.getElementById('node-incoming-date').innerText = "-";
+    document.getElementById('node-outgoing-date').innerText = "-";
+
+    // Fetch details from API
+    fetch(`/api/node/${nodeId}/details`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.ok) {
+                document.getElementById('node-crop-name').innerText = data.crop_name;
+                document.getElementById('node-incoming-date').innerText = data.incoming_date;
+                document.getElementById('node-outgoing-date').innerText = data.outgoing_date;
+            } else {
+                document.getElementById('node-crop-name').innerText = "데이터 없음";
+            }
+        }).catch(() => {
+            document.getElementById('node-crop-name').innerText = "연결 오류";
+        });
+
+    // Fetch History & Render Chart
+    fetch(`/api/node/${nodeId}/history`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.ok) {
+                updateNodeChart(data.history);
+            }
+        });
+
+    // Set dummy state for controls (This would ideally come from the API too)
     document.getElementById('ctrl-led').checked = Math.random() > 0.5;
     document.getElementById('ctrl-fan').checked = false;
     document.getElementById('ctrl-val').checked = false;
@@ -221,6 +251,85 @@ function openNodeModal(nodeId) {
 
 function closeNodeModal() {
     document.getElementById('node-modal').classList.add('hidden');
+    if (nodeDetailChart) {
+        nodeDetailChart.destroy();
+        nodeDetailChart = null;
+    }
+}
+
+function updateNodeChart(history) {
+    const ctx = document.getElementById('node-env-chart').getContext('2d');
+
+    if (nodeDetailChart) {
+        nodeDetailChart.destroy();
+    }
+
+    nodeDetailChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: history.labels,
+            datasets: [
+                {
+                    label: '온도 (℃)',
+                    data: history.temp,
+                    borderColor: '#f85149',
+                    backgroundColor: 'rgba(248, 81, 73, 0.1)',
+                    yAxisID: 'y-temp',
+                    tension: 0.3,
+                    pointRadius: 0
+                },
+                {
+                    label: '습도 (%)',
+                    data: history.humi,
+                    borderColor: '#58a6ff',
+                    backgroundColor: 'rgba(88, 166, 255, 0.1)',
+                    yAxisID: 'y-humi',
+                    tension: 0.3,
+                    pointRadius: 0
+                },
+                {
+                    label: '조도 (lx)',
+                    data: history.light,
+                    borderColor: '#f2cc60',
+                    backgroundColor: 'rgba(242, 204, 96, 0.1)',
+                    yAxisID: 'y-light',
+                    tension: 0.3,
+                    pointRadius: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    labels: { color: '#8b949e', font: { size: 10 } }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#8b949e', maxRotation: 0, autoSkip: true, maxTicksLimit: 6 },
+                    grid: { color: 'rgba(48, 54, 61, 0.3)' }
+                },
+                'y-temp': {
+                    type: 'linear', position: 'left',
+                    title: { display: true, text: '℃', color: '#f85149' },
+                    ticks: { color: '#f85149' },
+                    grid: { drawOnChartArea: false }
+                },
+                'y-humi': {
+                    type: 'linear', position: 'right',
+                    title: { display: true, text: '%', color: '#58a6ff' },
+                    ticks: { color: '#58a6ff' },
+                    grid: { drawOnChartArea: false }
+                },
+                'y-light': {
+                    display: false,
+                    type: 'linear', position: 'right',
+                }
+            }
+        }
+    });
 }
 
 function toggleDevice(device) {

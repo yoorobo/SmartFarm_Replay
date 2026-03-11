@@ -8,6 +8,8 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -174,7 +176,6 @@
                 <div class="modal-cam">
                     <h3>환경 관측 카메라 (육묘장)</h3>
                     <div class="placeholder-cam">
-                        <!-- 육묘장 카메라가 연결되면 여기에 img 태그 삽입 -->
                         <span>카메라 대기 중</span>
                     </div>
                 </div>
@@ -202,6 +203,25 @@
                                 <span class="slider round"></span>
                             </label>
                         </div>
+                    </div>
+                </div>
+
+                <div class="modal-chart-container">
+                    <canvas id="node-env-chart"></canvas>
+                </div>
+                <!-- Plant Date Section -->
+                <div class="modal-info-footer">
+                    <div class="info-item">
+                        <span class="label">🌱 작물:</span>
+                        <span id="node-crop-name" class="value">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">📅 입고 날짜:</span>
+                        <span id="node-incoming-date" class="value">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">🚜 출고 예정:</span>
+                        <span id="node-outgoing-date" class="value">-</span>
                     </div>
                 </div>
             </div>
