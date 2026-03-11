@@ -79,7 +79,7 @@ def get_node_details(node_id):
         with conn.cursor() as cursor:
             # 1. 노드, 품종 및 작물 정보 조회
             cursor.execute("""
-                SELECT fn.node_name, c.crop_name, sv.days_to_harvest
+                SELECT fn.node_name, c.crop_name, sv.variety_name, sv.days_to_harvest
                 FROM farm_nodes fn
                 JOIN seedling_varieties sv ON fn.current_variety_id = sv.variety_id
                 JOIN crops c ON sv.crop_id = c.crop_id
@@ -118,6 +118,7 @@ def get_node_details(node_id):
                 "node_id": node_id,
                 "node_name": node_info['node_name'],
                 "crop_name": node_info['crop_name'],
+                "variety_name": node_info['variety_name'],
                 "incoming_date": incoming_date_str,
                 "outgoing_date": outgoing_date_str
             })

@@ -224,7 +224,10 @@ function openNodeModal(nodeId) {
         .then(res => res.json())
         .then(data => {
             if (data.ok) {
-                document.getElementById('node-crop-name').innerText = data.crop_name;
+                const cropText = data.variety_name
+                    ? `${data.variety_name}(${data.crop_name})`
+                    : data.crop_name;
+                document.getElementById('node-crop-name').innerText = cropText;
                 document.getElementById('node-incoming-date').innerText = data.incoming_date;
                 document.getElementById('node-outgoing-date').innerText = data.outgoing_date;
             } else {
