@@ -235,23 +235,60 @@
     <div id="logs-modal" class="modal-overlay hidden">
         <div class="modal-content glass-panel large">
             <div class="modal-header">
-                <h2>AGV 전체 작업 로그</h2>
+                <h2>전체 통합 작업 로그</h2>
+                <div class="modal-tabs">
+                    <button class="tab-btn active" onclick="switchLogTab('agv')">AGV 작업</button>
+                    <button class="tab-btn" onclick="switchLogTab('inout')">입출고 기록</button>
+                    <button class="tab-btn" onclick="switchLogTab('nursery')">육묘장 로그</button>
+                </div>
                 <button class="btn-close" onclick="closeFullLogsModal()">✕</button>
             </div>
             <div class="modal-body">
-                <table class="logs-table">
-                    <thead>
-                        <tr>
-                            <th>명령어</th>
-                            <th>목적지 / 방향</th>
-                            <th>도착 여부</th>
-                            <th>시간</th>
-                        </tr>
-                    </thead>
-                    <tbody id="full-logs-body">
-                        <!-- Logs populated by JS -->
-                    </tbody>
-                </table>
+                <!-- AGV Logs -->
+                <div id="tab-agv" class="tab-content">
+                    <table class="logs-table">
+                        <thead>
+                            <tr>
+                                <th>명령어</th>
+                                <th>목적지 / 방향</th>
+                                <th>도착 여부</th>
+                                <th>시간</th>
+                            </tr>
+                        </thead>
+                        <tbody id="full-logs-body">
+                            <!-- Logs populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <!-- InOut Logs -->
+                <div id="tab-inout" class="tab-content hidden">
+                    <table class="logs-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>유형</th>
+                                <th>출발지</th>
+                                <th>목적지</th>
+                                <th>상태</th>
+                                <th>시간</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inout-logs-body"></tbody>
+                    </table>
+                </div>
+                <!-- Nursery Logs -->
+                <div id="tab-nursery" class="tab-content hidden">
+                    <table class="logs-table">
+                        <thead>
+                            <tr>
+                                <th>유형</th>
+                                <th>내용</th>
+                                <th>시간</th>
+                            </tr>
+                        </thead>
+                        <tbody id="nursery-logs-body"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

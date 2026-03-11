@@ -345,16 +345,47 @@ function toggleDevice(device) {
         body: JSON.stringify({ node_id: currNode, device: device, state: state })
     }).then(res => res.json())
         .then(data => {
-            if (data.ok) addLocalLog(`[CTRL] 수동 제어: ${currNode.toUpperCase()} ${device.toUpperCase()} 밸브 ${state}`, 'cmd-out');
+            if (data.ok) {
+                addLocalLog(`[CTRL] 수동 제어: ${currNode.toUpperCase()} ${device.toUpperCase()} 밸브 ${state}`, 'cmd-out');
+                // 육묘장 로그 탭이 열려있다면 즉시 갱신
+                if (!document.getElementById('logs-modal').classList.contains('hidden')) {
+                    fetchNurseryLogs();
+                }
+            }
         });
 }
 
 // Full Logs Modal
+let currentLogTab = 'agv';
+
+function switchLogTab(tabName) {
+    currentLogTab = tabName;
+    // Update button states
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.innerText.includes(tabName === 'agv' ? 'AGV' : tabName === 'inout' ? '입출고' : '육묘장'));
+    });
+    // Update content visibility
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.toggle('hidden', content.id !== `tab-${tabName}`);
+    });
+    // Fetch data for the selected tab
+    refreshActiveLogTab();
+}
+
+function refreshActiveLogTab() {
+    if (currentLogTab === 'agv') fetchAgvLogs();
+    else if (currentLogTab === 'inout') fetchInOutLogs();
+    else if (currentLogTab === 'nursery') fetchNurseryLogs();
+}
+
 function openFullLogsModal() {
+    document.getElementById('logs-modal').classList.remove('hidden');
+    refreshActiveLogTab();
+}
+
+function fetchAgvLogs() {
     const tbody = document.getElementById('full-logs-body');
     tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">데이터 불러오는 중...</td></tr>`;
-    document.getElementById('logs-modal').classList.remove('hidden');
-
     fetch('/api/tasks?limit=20')
         .then(res => res.json())
         .then(data => {
@@ -362,20 +393,74 @@ function openFullLogsModal() {
                 tbody.innerHTML = "";
                 data.tasks.forEach(task => {
                     const time = task.created_at ? task.created_at.substring(5, 19).replace('T', ' ') : "-";
-                    const status = task.status || (task.task_status === 2 ? "완료" : "진행중");
+                    const statusVal = task.status || task.task_status;
+                    const statusLabel = statusVal === 2 || statusVal === 'COMPLETED' ? "완료" : (statusVal === 1 ? "진행중" : "대기");
                     const dest = task.destination || task.destination_node || "-";
 
                     tbody.innerHTML += `
                         <tr>
                             <td><strong>GOTO</strong> (ID: ${task.id || task.task_id})</td>
                             <td><span class="badge">${dest.toUpperCase()}</span></td>
-                            <td>${status}</td>
+                            <td>${statusLabel}</td>
                             <td class="time">${time}</td>
                         </tr>
                     `;
                 });
             } else {
                 tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">기록이 없습니다.</td></tr>`;
+            }
+        });
+}
+
+function fetchInOutLogs() {
+    const tbody = document.getElementById('inout-logs-body');
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">데이터 불러오는 중...</td></tr>`;
+    fetch('/api/logs/inout?limit=20')
+        .then(res => res.json())
+        .then(data => {
+            if (data.ok && data.logs) {
+                tbody.innerHTML = "";
+                data.logs.forEach(log => {
+                    const time = log.time ? log.time.substring(5, 19).replace('T', ' ') : "-";
+                    const statusLabel = log.task_status === 2 ? "완료" : "진행중";
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${log.task_id}</td>
+                            <td><span class="badge ${log.type === '입고' ? 'cmd-in' : 'cmd-out'}">${log.type}</span></td>
+                            <td>${log.source_node.toUpperCase()}</td>
+                            <td>${log.destination_node.toUpperCase()}</td>
+                            <td>${statusLabel}</td>
+                            <td class="time">${time}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">기록이 없습니다.</td></tr>`;
+            }
+        });
+}
+
+function fetchNurseryLogs() {
+    const tbody = document.getElementById('nursery-logs-body');
+    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">데이터 불러오는 중...</td></tr>`;
+    fetch('/api/logs/nursery?limit=20')
+        .then(res => res.json())
+        .then(data => {
+            if (data.ok && data.logs) {
+                tbody.innerHTML = "";
+                data.logs.forEach(log => {
+                    const time = log.time ? log.time.substring(5, 19).replace('T', ' ') : "-";
+                    const typeClass = log.type === 'CONTROL' ? 'cmd-out' : 'sys-msg';
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><span class="badge ${typeClass}">${log.type}</span></td>
+                            <td>${log.msg}</td>
+                            <td class="time">${time}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">기록이 없습니다.</td></tr>`;
             }
         });
 }

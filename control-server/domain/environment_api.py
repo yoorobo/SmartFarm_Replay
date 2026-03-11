@@ -50,7 +50,10 @@ def get_latest_sensors():
 
 @env_bp.route('/api/sensor/control', methods=['POST'])
 def control_sensor():
-    """웹 GUI의 수동 제어 명령을 받아 ESP32에 반영"""
+    """웹 GUI의 수동 제어 명령을 받아 ESP32에 반영 및 즉시 로깅"""
+    from database.db_config import get_db_connection
+    from datetime import datetime
+    
     data = request.get_json()
     node_id = data.get('node_id', '').lower()
     device = data.get('device')  # 'led', 'val', 'fan'
@@ -65,7 +68,99 @@ def control_sensor():
     cmd = f"{device.upper()}_{state.upper()}"
     manual_overrides[node_id][device.lower()] = cmd
     
-    return jsonify({"ok": True, "message": f"{node_id.upper()} {device.upper()} -> {state} 설정 완료"})
+    # --- 즉시 로깅 추가 ---
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # 1. user_action_logs 기록
+            user_id = 1 # 기본 admin/system ID (세션 연동 시 세션값 사용 가능)
+            action_detail = {"node_id": node_id, "device": device, "state": state, "manual": True}
+            cursor.execute("""
+                INSERT INTO user_action_logs (user_id, action_type_id, target_id, action_detail, action_result, action_time)
+                VALUES (%s, 19, %s, %s, 1, NOW())
+            """, (user_id, node_id, json.dumps(action_detail)))
+            
+            # 2. nursery_actuator_logs 기록 (장치 타입 매핑: VAL=1, FAN=2, LED=3)
+            a_type_id = {"val": 1, "fan": 2, "led": 3}.get(device.lower())
+            if a_type_id:
+                # 해당 노드의 동작기 ID 찾기
+                cursor.execute("""
+                    SELECT actuator_id FROM nursery_actuators na
+                    JOIN nursery_controllers nc ON na.controller_id = nc.controller_id
+                    WHERE nc.node_id = %s AND na.actuator_type_id = %s
+                """, (node_id.upper(), a_type_id))
+                act_row = cursor.fetchone()
+                
+                if act_row:
+                    cursor.execute("""
+                        INSERT INTO nursery_actuator_logs (actuator_id, state_value, trigger_id, logged_at)
+                        VALUES (%s, %s, 1, NOW())
+                    """, (act_row['actuator_id'], state.upper()))
+        conn.commit()
+    except Exception as e:
+        print(f"Manual Log Error: {e}")
+    finally:
+        conn.close()
+        
+    return jsonify({"ok": True, "message": f"{node_id.upper()} {device.upper()} -> {state} 설정 및 로그 기록 완료"})
+
+
+@env_bp.route('/api/logs/inout')
+def get_inout_logs():
+    """입출고 관련 로그 (A01, A04 노드 관련 운송 작업)"""
+    from database.db_config import get_db_connection
+    limit = request.args.get('limit', 20, type=int)
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT task_id, source_node, destination_node, task_status, ordered_at as time,
+                       CASE WHEN source_node = 'a01' THEN '입고' ELSE '출고' END as type
+                FROM transport_tasks 
+                WHERE source_node IN ('a01', 'a04') OR destination_node IN ('a01', 'a04')
+                ORDER BY task_id DESC LIMIT %s
+            """, (limit,))
+            rows = cursor.fetchall()
+            for r in rows:
+                if r['time']: r['time'] = r['time'].isoformat()
+            return jsonify({"ok": True, "logs": rows})
+    finally:
+        conn.close()
+
+
+@env_bp.route('/api/logs/nursery')
+def get_nursery_logs():
+    """육묘장 통합 로그 (센서 샘플 + 수동 제어)"""
+    from database.db_config import get_db_connection
+    limit = request.args.get('limit', 20, type=int)
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # 수동 제어 + 센서 샘플을 통합하여 최신순 정렬
+            # 간단하게 연산자 로그와 센서 평균 로그를 섞어서 출력
+            cursor.execute("""
+                (SELECT 'CONTROL' as type, logged_at as time, 
+                        CONCAT(nc.node_id, ' ', CASE na.actuator_type_id WHEN 1 THEN '밸브' WHEN 2 THEN '팬' ELSE 'LED' END, ' ', state_value) as msg
+                 FROM nursery_actuator_logs nal
+                 JOIN nursery_actuators na ON nal.actuator_id = na.actuator_id
+                 JOIN nursery_controllers nc ON na.controller_id = nc.controller_id
+                 ORDER BY nal.log_id DESC LIMIT %s)
+                UNION ALL
+                (SELECT 'SENSOR' as type, measured_at as time,
+                        CONCAT(nc.node_id, ' 온도:', value, '℃') as msg
+                 FROM nursery_sensor_logs nsl
+                 JOIN nursery_sensors ns ON nsl.sensor_id = ns.sensor_id
+                 JOIN nursery_controllers nc ON ns.controller_id = nc.controller_id
+                 WHERE ns.sensor_type_id = 1
+                 ORDER BY nsl.log_id DESC LIMIT %s)
+                ORDER BY time DESC LIMIT %s
+            """, (limit // 2, limit // 2, limit))
+            rows = cursor.fetchall()
+            for r in rows:
+                if r['time']: r['time'] = r['time'].isoformat()
+            return jsonify({"ok": True, "logs": rows})
+    finally:
+        conn.close()
 
 
 @env_bp.route('/api/node/<node_id>/details')

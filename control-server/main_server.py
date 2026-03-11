@@ -52,7 +52,8 @@ app.register_blueprint(auth_bp)
 @app.before_request
 def require_login():
     # 정적 파일이나 인증 API, 외부 기기(센서) 전송용 API는 제외
-    if request.path.startswith('/static/') or request.path.startswith('/api/rfid') or request.path in ['/login', '/logout', '/data', '/binary-data']:
+    if request.path.startswith('/static/') or request.path.startswith('/api/') or \
+       request.path in ['/login', '/logout', '/data', '/binary-data']:
         return None
     if not session.get('logged_in'):
         return redirect(url_for('auth.login'))

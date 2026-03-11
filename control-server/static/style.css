@@ -869,24 +869,100 @@ input:checked+.slider:before {
     color: var(--node-active);
 }
 
-/* Table */
+/* Table & Logs Modal Expansion */
+.modal-content.large {
+    width: 900px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-content.large .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.modal-tabs {
+    display: flex;
+    gap: 12px;
+    margin-left: 20px;
+    padding: 4px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+}
+
+.tab-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 6px 16px;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.tab-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn.active {
+    background: #21262d;
+    border-color: #30363d;
+    color: var(--accent-green);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.tab-content {
+    animation: fadeIn 0.3s ease;
+}
+
+.tab-content.hidden {
+    display: none;
+}
+
 .logs-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 13.5px;
 }
 
 .logs-table th,
 .logs-table td {
-    padding: 10px;
+    padding: 12px 10px;
     text-align: left;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 .logs-table th {
+    position: sticky;
+    top: 0;
+    background: var(--panel-bg);
     color: var(--text-secondary);
-    font-weight: 500;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    z-index: 1;
 }
+
+.logs-table tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.logs-table .time {
+    color: var(--text-secondary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+}
+
+/* Badge Variations */
+.badge.cmd-in { background: rgba(35, 134, 54, 0.15); color: #3fb950; border: 1px solid rgba(63, 185, 80, 0.2); }
+.badge.cmd-out { background: rgba(31, 111, 235, 0.15); color: #58a6ff; border: 1px solid rgba(88, 166, 255, 0.2); }
+.badge.sys-msg { background: rgba(139, 148, 158, 0.1); color: #8b949e; border: 1px solid rgba(139, 148, 158, 0.2); }
 
 /* Joystick Controls */
 .joystick-grid {
