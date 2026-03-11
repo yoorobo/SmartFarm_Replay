@@ -167,20 +167,13 @@ def send_path():
         return jsonify({"ok": True, "message": f"경로 '{path}' 전송 완료"})
     return jsonify({"ok": False, "error": "연결된 로봇이 없습니다."}), 503
 
-# 로봇 상태 캐싱을 위한 전역 변수
-# TCP 서버에서 수신한 ROBOT_STATE 데이터를 저장
-latest_robot_state = {}
-
 @robot_bp.route('/api/robot_state')
 def get_robot_state():
     """웹 대시보드(AGV 아이콘 이동)를 위한 현재 로봇 상태 반환"""
-    # 실제 환경에서는 TCP 서버(tcp_robot_server.py)에서 latest_robot_state를 업데이트해야 함.
-    # tcp_robot_server.py와 데이터 공유를 위해 임시로 활성 연결 확인
-    from network.tcp_robot_server import active_tcp_connections
+    from network.tcp_robot_server import active_tcp_connections, latest_robot_state
     
     robot_id = request.args.get('robot_id', 'R01')
     
-    # TCP 모듈에서 받은 가장 최신 상태가 있으면 반환
     if robot_id in latest_robot_state:
         return jsonify({
             "ok": True, 

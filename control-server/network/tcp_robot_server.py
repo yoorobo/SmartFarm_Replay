@@ -17,6 +17,7 @@ from network.sfam_protocol import (
 # TCP 연결된 클라이언트 소켓 관리
 active_tcp_connections = {}
 last_logged_states = {}
+latest_robot_state = {}
 
 def handle_hardware_client(client_socket, addr):
     """하드웨어 TCP 클라이언트 (바이너리 프로토콜) 수신 스레드"""
@@ -56,14 +57,32 @@ def handle_hardware_client(client_socket, addr):
                             batt = payload[1]
                             node_idx = payload[2]
                             
-                            robot_name = f"r0{8 if src_id == 0x01 else 9}"
-                            node_pos = f"NODE-{node_idx}"
+                            # 로봇 DB ID 매핑
+                            agv_db_id = "R01" if src_id == 0x01 else f"R{src_id:02d}"
                             
-                            latest_data[robot_name] = {
-                                "status": f"🔋 {batt}%<br>📍 {node_pos}",
-                                "last_seen": datetime.now().strftime('%H:%M:%S')
+                            # Node Name 매핑
+                            if 1 <= node_idx <= 4:
+                                node_str = f"a0{node_idx}"
+                            elif 5 <= node_idx <= 7:
+                                node_str = f"s0{node_idx}"
+                            elif 8 <= node_idx <= 10:
+                                node_str = f"r0{node_idx}"
+                            elif 11 <= node_idx <= 13:
+                                node_str = f"s{node_idx}"
+                            elif 14 <= node_idx <= 16:
+                                node_str = f"r{node_idx}"
+                            else:
+                                node_str = f"node-{node_idx}"
+                                
+                            # API용 최신 상태 캐시 저장
+                            latest_robot_state[agv_db_id] = {
+                                "battery": batt,
+                                "node": node_str,
+                                "loaded": False
                             }
                             
+                            # 기존 레거시 호환용 (DB 로깅용)
+                            node_pos = f"NODE-{node_idx}"
                             # DB 로깅
                             conn = get_db_connection()
                             try:
@@ -102,8 +121,13 @@ def handle_hardware_client(client_socket, addr):
                                 elif s_id == 0x03: light = val * 10.0 # light는 스케일링 복구
                                 idx += 4
                                 
-                            latest_data["nursery"] = {
-                                "status": f"🌡️ {temp:.1f}°C<br>💧 {hum:.1f}%<br>☀️ {int(light)}lx",
+                            # API가 요구하는 포맷으로 캐싱
+                            node_name = f"S{src_id:02X}" # e.g. 0x11 -> S11
+                            latest_data[node_name] = {
+                                "temp": round(temp, 1),
+                                "hum": round(hum, 1),
+                                "light": int(light),
+                                "last_updated": datetime.now().timestamp(),
                                 "last_seen": datetime.now().strftime('%H:%M:%S')
                             }
                             
