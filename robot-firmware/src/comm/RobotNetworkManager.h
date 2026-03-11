@@ -37,7 +37,7 @@
 #include "../motor/MotorController.h"
 #include "../line/LineFollower.h"
 #include "../path/PathFinder.h"
-#include "../sensor/RFIDReader.h"
+#include "../rfid/RFIDReader.h"
 #include "../motor/ServoArmController.h"
 
 /**

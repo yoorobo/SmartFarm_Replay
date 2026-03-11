@@ -14,6 +14,7 @@
 
 #include <Arduino.h>
 #include "../motor/MotorController.h"
+#include "../motor/ServoArmController.h"
 
 /**
  * @brief 로봇 주행 상태

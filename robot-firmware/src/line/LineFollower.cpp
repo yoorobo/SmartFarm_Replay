@@ -10,8 +10,9 @@
 //  생성자
 // ============================================================
 
-LineFollower::LineFollower(MotorController& motor)
+LineFollower::LineFollower(MotorController& motor, ServoArmController& arm)
     : _motor(motor)
+    , _arm(arm)
     , _pathString("")
     , _currentStep(0)
     , _isRunning(false)
