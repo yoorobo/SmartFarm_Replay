@@ -7,12 +7,12 @@ import socket
 import threading
 import time
 
-# 전역 상태
-latest_camera_frame = None
-_camera_frame_lock = threading.Lock()
-_camera_frame_event = threading.Event()
-camera_fps = 0.0
-_camera_last_update = 0.0
+# 전역 상태 - 카메라 ID별로 프레임 관리
+latest_camera_frames = {}          # {camera_id: bytes}
+_camera_frame_locks = {}           # {camera_id: Lock}
+_camera_frame_events = {}          # {camera_id: Event}
+camera_fps = {}                    # {camera_id: float}
+_camera_last_updates = {}          # {camera_id: float}
 
 # 최소 1x1 회색 JPEG (카메라 미연결 시 placeholder)
 PLACEHOLDER_JPEG = (
@@ -22,25 +22,37 @@ PLACEHOLDER_JPEG = (
 )
 
 
-def get_camera_frame():
-    """최신 카메라 프레임 반환 (없으면 placeholder)"""
-    with _camera_frame_lock:
-        return latest_camera_frame if latest_camera_frame else PLACEHOLDER_JPEG
+def _ensure_camera(camera_id):
+    """카메라 ID별 상태 초기화"""
+    if camera_id not in _camera_frame_locks:
+        _camera_frame_locks[camera_id] = threading.Lock()
+        _camera_frame_events[camera_id] = threading.Event()
+        camera_fps[camera_id] = 0.0
+        _camera_last_updates[camera_id] = 0.0
+        latest_camera_frames[camera_id] = None
 
 
-def wait_for_frame(timeout=2.0):
+def get_camera_frame(camera_id):
+    """특정 카메라의 최신 프레임 반환 (없으면 placeholder)"""
+    _ensure_camera(camera_id)
+    with _camera_frame_locks[camera_id]:
+        return latest_camera_frames.get(camera_id) or PLACEHOLDER_JPEG
+
+
+def wait_for_frame(camera_id, timeout=2.0):
     """새 프레임이 올 때까지 대기"""
-    return _camera_frame_event.wait(timeout=timeout)
+    _ensure_camera(camera_id)
+    return _camera_frame_events[camera_id].wait(timeout=timeout)
 
 
-def clear_frame_event():
+def clear_frame_event(camera_id):
     """프레임 이벤트 플래그 초기화"""
-    _camera_frame_event.clear()
+    if camera_id in _camera_frame_events:
+        _camera_frame_events[camera_id].clear()
 
 
 def udp_camera_server(port=7070):
-    """ESP32-CAM UDP 패킷 수신·조립 (메인 루프)"""
-    global latest_camera_frame, camera_fps, _camera_last_update
+    """ESP32-CAM UDP 패킷 수신·조립 (메인 루프) - 카메라 ID별 분리 처리"""
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4 * 1024 * 1024)
@@ -61,21 +73,23 @@ def udp_camera_server(port=7070):
             if len(data) < 5:
                 continue
 
-            vehicle_id = data[0]
+            camera_id = data[0]       # Byte 0 = vehicle/camera ID
             f_no = data[1]
             p_no = data[2]
             received_checksum = data[3]
             chunk = data[4:]
 
-            if vehicle_id not in last_frame_no:
-                last_frame_no[vehicle_id] = -1
-            lfn = last_frame_no[vehicle_id]
+            _ensure_camera(camera_id)
+
+            if camera_id not in last_frame_no:
+                last_frame_no[camera_id] = -1
+            lfn = last_frame_no[camera_id]
             if f_no < lfn and (lfn - f_no) < 200:
                 continue
 
-            if vehicle_id not in frames:
-                frames[vehicle_id] = {}
-            vframes = frames[vehicle_id]
+            if camera_id not in frames:
+                frames[camera_id] = {}
+            vframes = frames[camera_id]
 
             if f_no not in vframes:
                 if len(vframes) > 3:
@@ -92,16 +106,17 @@ def udp_camera_server(port=7070):
                     calculated_checksum = sum(full_data) % 256
 
                     if calculated_checksum == vframes[f_no]["target_checksum"]:
-                        with _camera_frame_lock:
-                            latest_camera_frame = full_data
-                        _camera_frame_event.set()
+                        with _camera_frame_locks[camera_id]:
+                            latest_camera_frames[camera_id] = full_data
+                        _camera_frame_events[camera_id].set()
                         now_t = time.time()
-                        if _camera_last_update > 0:
-                            camera_fps = 1.0 / (now_t - _camera_last_update)
-                        _camera_last_update = now_t
-                        last_frame_no[vehicle_id] = f_no
+                        prev = _camera_last_updates.get(camera_id, 0)
+                        if prev > 0:
+                            camera_fps[camera_id] = 1.0 / (now_t - prev)
+                        _camera_last_updates[camera_id] = now_t
+                        last_frame_no[camera_id] = f_no
 
-                frames[vehicle_id] = {k: v for k, v in vframes.items() if k > f_no}
+                frames[camera_id] = {k: v for k, v in vframes.items() if k > f_no}
         except socket.timeout:
             continue
         except Exception as e:

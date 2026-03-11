@@ -147,7 +147,7 @@
                             <span id="cam-fps" class="fps-badge">0 FPS</span>
                         </div>
                         <div class="cam-view">
-                            <img id="agv-cam-stream" src="/api/camera/stream" alt="카메라 오프라인"
+                            <img id="agv-cam-stream" src="/api/camera/stream/1" alt="카메라 오프라인"
                                 onerror="this.onerror=null; this.src=''; this.alt='카메라 오프라인';">
                         </div>
                     </div>
@@ -176,7 +176,10 @@
                 <div class="modal-cam">
                     <h3>환경 관측 카메라 (육묘장)</h3>
                     <div class="placeholder-cam">
-                        <span>카메라 대기 중</span>
+                        <img src="/api/camera/stream/10" alt="육묘장 카메라"
+                            style="width:100%; height:100%; object-fit:cover; border-radius:8px;"
+                            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                        <span style="display:none;">카메라 대기 중</span>
                     </div>
                 </div>
                 <div class="modal-controls">
