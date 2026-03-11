@@ -62,17 +62,17 @@ def handle_hardware_client(client_socket, addr):
                             
                             # Node Name 매핑
                             if 1 <= node_idx <= 4:
-                                node_str = f"a0{node_idx}"
+                                node_str = f"a{node_idx:02d}"
                             elif 5 <= node_idx <= 7:
-                                node_str = f"s0{node_idx}"
+                                node_str = f"s{node_idx:02d}"
                             elif 8 <= node_idx <= 10:
-                                node_str = f"r0{node_idx}"
+                                node_str = f"r{node_idx:02d}"
                             elif 11 <= node_idx <= 13:
-                                node_str = f"s{node_idx}"
+                                node_str = f"s{node_idx:02d}"
                             elif 14 <= node_idx <= 16:
-                                node_str = f"r{node_idx}"
+                                node_str = f"r{node_idx:02d}"
                             else:
-                                node_str = f"node-{node_idx}"
+                                node_str = f"node-{node_idx:02d}"
                                 
                             # API용 최신 상태 캐시 저장
                             latest_robot_state[agv_db_id] = {
@@ -87,7 +87,7 @@ def handle_hardware_client(client_socket, addr):
                             conn = get_db_connection()
                             try:
                                 with conn.cursor() as cursor:
-                                    agv_db_id = "R01" if src_id == 0x01 else f"R0{src_id}"
+                                    agv_db_id = f"R{src_id:02d}"
                                     cursor.execute(
                                         "INSERT IGNORE INTO agv_robots (agv_id, status_id) VALUES (%s, 1)",
                                         (agv_db_id,)
@@ -177,7 +177,7 @@ def handle_hardware_client(client_socket, addr):
                         conn = get_db_connection()
                         try:
                             with conn.cursor() as cursor:
-                                agv_db_id = "R01" if src_id == 0x01 else f"R0{src_id}"
+                                agv_db_id = f"R{src_id:02d}"
                                 
                                 # 1단계: 스캔한 카드가 어느 트레이인지 확인
                                 cursor.execute("SELECT tray_id FROM trays WHERE nfc_uid = %s", (scanned_uid,))
