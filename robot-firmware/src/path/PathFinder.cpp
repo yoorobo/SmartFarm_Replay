@@ -26,6 +26,17 @@ static void addGraphEdge(PathNode* nodes, int from, int to, int exitDir) {
     }
 }
 
+// 반대 방향: L↔R, S↔U (목적지별 도착 접미사용)
+static char oppositeDir(char c) {
+    switch (c) {
+        case 'L': return 'R';
+        case 'R': return 'L';
+        case 'S': return 'U';
+        case 'U': return 'S';
+        default:  return c;
+    }
+}
+
 PathFinder::PathFinder() : _initialized(false) {
 }
 
@@ -174,7 +185,25 @@ int PathFinder::calculatePath(int startIdx, int targetIdx, int startDir, char* o
         outPath[outLen++] = cmd;
         currentDir = exitDir;  // 진입 후 바라보는 방향 = 나간 방향과 동일
     }
-    outPath[outLen++] = 'E';
+
+    // 목적지별 도착 접미사: a01/a04=UE, s11~r16=(반대회전)BE
+    if (outLen < 1 || outLen >= PATH_STRING_MAX - 2) {
+        outPath[outLen++] = 'E';
+    } else {
+        char lastCmd = outPath[outLen - 1];
+        bool isMainEnd = (targetIdx == 0 || targetIdx == 3);   // a01, a04
+        bool isSlotEnd = (targetIdx >= 10 && targetIdx <= 15); // s11~s13, r14~r16
+        if (isMainEnd) {
+            outPath[outLen - 1] = 'U';
+            outPath[outLen++] = 'E';
+        } else if (isSlotEnd) {
+            outPath[outLen - 1] = oppositeDir(lastCmd);
+            outPath[outLen++] = 'B';
+            outPath[outLen++] = 'E';
+        } else {
+            outPath[outLen++] = 'E';
+        }
+    }
     outPath[outLen] = '\0';
 
     return outLen;
