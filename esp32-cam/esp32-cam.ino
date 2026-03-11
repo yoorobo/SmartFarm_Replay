@@ -80,8 +80,8 @@ void setup() {
   }
 
   sensor_t *s = esp_camera_sensor_get();
-  s->set_hmirror(s, 1);  // 1 = 좌우반전, 0 = 원래대로
-  s->set_vflip(s, 1);  // 1 = 상하반전, 0 = 원래대로
+  s->set_hmirror(s, 0);  // 1 = 좌우반전, 0 = 원래대로
+  s->set_vflip(s, 0);  // 1 = 상하반전, 0 = 원래대로
 
   Serial.println("[WiFi] 연결 시도 중...");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
