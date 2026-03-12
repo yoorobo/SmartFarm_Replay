@@ -76,13 +76,19 @@ def handle_hardware_client(client_socket, addr):
                         client_id = f"0x{src_id:02X}"
                         active_tcp_connections[client_id] = client_socket
                         
-                        _, node_id, _ = identify_node(src_id)
-                        if node_id:
-                            node_key = node_id.lower()
-                            active_tcp_connections[node_key] = client_socket
-                            display_name = f"[{node_key.upper()}]"
+                        # AGV 매핑 (0x01 등 로봇 ID일 경우 'R01' 등으로도 등록)
+                        if src_id < 0x10:  # 로봇은 0x01~0x0F 대역 사용
+                            agv_key = "R01" if src_id == 0x01 else f"R{src_id:02d}"
+                            active_tcp_connections[agv_key] = client_socket
+                            display_name = f"[{agv_key}]"
                         else:
-                            display_name = f"[{client_id}]"
+                            _, node_id, _ = identify_node(src_id)
+                            if node_id:
+                                node_key = node_id.lower()
+                                active_tcp_connections[node_key] = client_socket
+                                display_name = f"[{node_key.upper()}]"
+                            else:
+                                display_name = f"[{client_id}]"
                             
                     # 1. 하트비트 요청 (0x01)
                     if msg_type == MSG_HEARTBEAT_REQ:
