@@ -93,10 +93,29 @@ def control_sensor():
                 act_row = cursor.fetchone()
                 
                 if act_row:
+                    act_id = act_row['actuator_id']
+                else:
+                    # 자동 등록: 컨트롤러 ID 먼저 확인
+                    cursor.execute("SELECT controller_id FROM nursery_controllers WHERE node_id = %s LIMIT 1", (node_id.upper(),))
+                    ctrl_row = cursor.fetchone()
+                    if ctrl_row:
+                        ctrl_id = ctrl_row['controller_id']
+                    else:
+                        ctrl_id = f"CTRL_{node_id.upper()}"
+                        cursor.execute("INSERT IGNORE INTO nursery_controllers (controller_id, node_id) VALUES (%s, %s)", (ctrl_id, node_id.upper()))
+                    
+                    # 액추에이터 등록 (핀 번호는 0으로 임시 설정)
                     cursor.execute("""
-                        INSERT INTO nursery_actuator_logs (actuator_id, state_value, trigger_id, logged_at)
-                        VALUES (%s, %s, 1, NOW())
-                    """, (act_row['actuator_id'], state.upper()))
+                        INSERT INTO nursery_actuators (controller_id, actuator_type_id, pin_number)
+                        VALUES (%s, %s, 0)
+                    """, (ctrl_id, a_type_id))
+                    act_id = cursor.lastrowid
+
+                # 로그 삽입
+                cursor.execute("""
+                    INSERT INTO nursery_actuator_logs (actuator_id, state_value, trigger_id, logged_at)
+                    VALUES (%s, %s, 1, NOW())
+                """, (act_id, state.upper()))
         conn.commit()
     except Exception as e:
         print(f"Manual Log Error: {e}")
@@ -151,7 +170,7 @@ def get_nursery_logs():
                     (SELECT 'SENSOR' as type, measured_at as time,
                             CONCAT(nc.node_id, 
                                    MAX(CASE WHEN ns.sensor_type_id = 1 THEN CONCAT(' 온도:', value, '℃') ELSE '' END),
-                                   MAX(CASE WHEN ns.sensor_type_id = 2 THEN CONCAT(' 습도:', value, '%%') ELSE '' END),
+                                   MAX(CASE WHEN ns.sensor_type_id = 2 THEN CONCAT(' 습도:', value, CHAR(37)) ELSE '' END),
                                    MAX(CASE WHEN ns.sensor_type_id = 3 THEN CONCAT(' 광량:', value, 'lx') ELSE '' END)) as msg
                      FROM nursery_sensor_logs nsl
                      JOIN nursery_sensors ns ON nsl.sensor_id = ns.sensor_id
