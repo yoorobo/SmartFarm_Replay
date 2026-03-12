@@ -228,34 +228,15 @@ void LineFollower::executeCrossroadCommand() {
         _isRunning = false;
         Serial.println("[LineFollower] ✅ 목적지 도착");
         
-        /*
-        // --- [자동 픽업 로직] 목적지가 입고장(A01, index 0)인 경우 ---
-        // 웹에서 버튼을 눌렀을 때만 작동하도록 자율 작동 로직 임시 주석 처리
         if (_currentIdx == 0) {
-            Serial.println("[LineFollower] 목적지 A01(입고장) 감지 -> 자율 픽업 시퀀스 시작!");
-            
-            // 1. 픽업 준비 (그리퍼 열기, 팔 내리기)
-            _arm.pickReady();
-            
-            // 2. 후진하여 트레이와 밀착 (약 0.5초 ~ 1초 후진, 하드웨어 테스트 후 시간 조정 필요)
-            Serial.println("[LineFollower] 픽업을 위해 후진하여 트레이에 밀착...");
+            Serial.println("[LineFollower] 목적지 A01(입고장) 감지 -> 암 회전 + 후진");
+            _arm.rotateArmCW();
             _motor.goBackward();
-            delay(700);  // 0.7초 후진
+            delay(1000);
             _motor.stop();
-            delay(500);  // 안정화 대기
-            
-            // 3. 픽업 실행 (그리퍼 닫기, 팔 올리기)
-            _arm.pickExecute();
-            
-            Serial.println("[LineFollower] 자율 픽업 시퀀스 완료!");
+            delay(500);
+            Serial.println("[LineFollower] 암 회전 + 후진 완료!");
         }
-        // --- [s11 도착] 암 180도 회전 ---
-        if (_currentIdx == 10) {
-            Serial.println("[LineFollower] 목적지 S11 도착 -> 암 180도 회전");
-            _arm.rotateArm180CCW();
-        }
-        // -------------------------------------------------------------
-        */
         
         return;
     }
@@ -283,26 +264,15 @@ void LineFollower::executeCrossroadCommand() {
             _isRunning = false;
             Serial.println("[LineFollower] ✅ 목적지 도착 (E 명령)");
             
-            /*
-            // --- [자동 픽업 로직] 목적지가 입고장(A01, index 0)인 경우 ---
-            // 웹에서 버튼을 눌렀을 때만 작동하도록 자율 작동 로직 임시 주석 처리
             if (_currentIdx == 0) {
-                Serial.println("[LineFollower] 목적지 A01(입고장) 감지 -> 자율 픽업 시퀀스 시작!");
-                _arm.pickReady();
+                Serial.println("[LineFollower] 목적지 A01(입고장) 감지 -> 암 회전 + 후진");
+                _arm.rotateArmCW();
                 _motor.goBackward();
-                delay(700);  // 0.7초 후진
+                delay(1000);
                 _motor.stop();
                 delay(500);
-                _arm.pickExecute();
-                Serial.println("[LineFollower] 자율 픽업 시퀀스 완료!");
+                Serial.println("[LineFollower] 암 회전 + 후진 완료!");
             }
-            // --- [s11 도착] 암 180도 회전 ---
-            if (_currentIdx == 10) {
-                Serial.println("[LineFollower] 목적지 S11 도착 -> 암 180도 회전");
-                _arm.rotateArm180CCW();
-            }
-            // -------------------------------------------------------------
-            */
             
             break;
 
