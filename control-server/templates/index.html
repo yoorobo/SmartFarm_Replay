@@ -77,31 +77,29 @@
                         <line x1="80%" y1="70%" x2="80%" y2="90%" stroke="#30363d" stroke-width="4"
                             stroke-dasharray="10,10" />
 
-                        <!-- AGV 활성 경로 오버레이 (이동 시 애니메이션) -->
-                        <!-- A line segments -->
+                        <!-- AGV 활성 경로 오버레이 (PathFinder.cpp 그래프 기준) -->
+                        <!-- 메인 라인: A01-A02-A03-A04 -->
                         <line class="agv-active-path" id="path-a01-a02" x1="10%" y1="50%" x2="40%" y2="50%" />
                         <line class="agv-active-path" id="path-a02-a03" x1="40%" y1="50%" x2="60%" y2="50%" />
                         <line class="agv-active-path" id="path-a03-a04" x1="60%" y1="50%" x2="90%" y2="50%" />
-                        <!-- S vertical segments -->
-                        <line class="agv-active-path" id="path-s11-s05" x1="20%" y1="10%" x2="20%" y2="30%" />
-                        <line class="agv-active-path" id="path-s05-a01" x1="20%" y1="30%" x2="20%" y2="50%" />
-                        <line class="agv-active-path" id="path-s12-s06" x1="40%" y1="10%" x2="40%" y2="30%" />
-                        <line class="agv-active-path" id="path-s06-a02" x1="40%" y1="30%" x2="40%" y2="50%" />
-                        <line class="agv-active-path" id="path-s13-s07" x1="60%" y1="10%" x2="60%" y2="30%" />
-                        <line class="agv-active-path" id="path-s07-a03" x1="60%" y1="30%" x2="60%" y2="50%" />
-                        <!-- S horizontal segments -->
+                        <!-- S-Zone 분기: A02 ↔ S06 (상단 진입점) -->
+                        <line class="agv-active-path" id="path-a02-s06" x1="40%" y1="50%" x2="40%" y2="30%" />
+                        <!-- S 수평: S05-S06-S07 -->
                         <line class="agv-active-path" id="path-s05-s06" x1="20%" y1="30%" x2="40%" y2="30%" />
                         <line class="agv-active-path" id="path-s06-s07" x1="40%" y1="30%" x2="60%" y2="30%" />
-                        <!-- R vertical segments -->
-                        <line class="agv-active-path" id="path-r14-r08" x1="40%" y1="90%" x2="40%" y2="70%" />
-                        <line class="agv-active-path" id="path-r08-a02" x1="40%" y1="70%" x2="40%" y2="50%" />
-                        <line class="agv-active-path" id="path-r15-r09" x1="60%" y1="90%" x2="60%" y2="70%" />
-                        <line class="agv-active-path" id="path-r09-a03" x1="60%" y1="70%" x2="60%" y2="50%" />
-                        <line class="agv-active-path" id="path-r16-r10" x1="80%" y1="90%" x2="80%" y2="70%" />
-                        <line class="agv-active-path" id="path-r10-a04" x1="80%" y1="70%" x2="80%" y2="50%" />
-                        <!-- R horizontal segments -->
+                        <!-- S 보관실 진입: S05↔S11, S06↔S12, S07↔S13 -->
+                        <line class="agv-active-path" id="path-s05-s11" x1="20%" y1="30%" x2="20%" y2="10%" />
+                        <line class="agv-active-path" id="path-s06-s12" x1="40%" y1="30%" x2="40%" y2="10%" />
+                        <line class="agv-active-path" id="path-s07-s13" x1="60%" y1="30%" x2="60%" y2="10%" />
+                        <!-- R-Zone 분기: A03 ↔ R09 (하단 진입점) -->
+                        <line class="agv-active-path" id="path-a03-r09" x1="60%" y1="50%" x2="60%" y2="70%" />
+                        <!-- R 수평: R08-R09-R10 -->
                         <line class="agv-active-path" id="path-r08-r09" x1="40%" y1="70%" x2="60%" y2="70%" />
                         <line class="agv-active-path" id="path-r09-r10" x1="60%" y1="70%" x2="80%" y2="70%" />
+                        <!-- R 보관실 진입: R08↔R14, R09↔R15, R10↔R16 -->
+                        <line class="agv-active-path" id="path-r08-r14" x1="40%" y1="70%" x2="40%" y2="90%" />
+                        <line class="agv-active-path" id="path-r09-r15" x1="60%" y1="70%" x2="60%" y2="90%" />
+                        <line class="agv-active-path" id="path-r10-r16" x1="80%" y1="70%" x2="80%" y2="90%" />
                     </svg>
 
                     <!-- Inbound / Outbound -->

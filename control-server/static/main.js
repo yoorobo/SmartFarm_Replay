@@ -56,21 +56,21 @@ function pollSensorData() {
 // 2. Data Polling: AGV Robot State
 // ==========================================
 
-// 노드 간 인접 관계 (양방향)
+// 노드 간 인접 관계 (PathFinder.cpp 그래프 기준, 양방향)
 const trackAdjacency = {
-    'A01': ['A02', 'S05'],
-    'A02': ['A01', 'A03', 'S06', 'R08'],
-    'A03': ['A02', 'A04', 'S07', 'R09'],
-    'A04': ['A03', 'R10'],
-    'S05': ['A01', 'S06', 'S11'],
-    'S06': ['S05', 'S07', 'A02', 'S12'],
-    'S07': ['S06', 'A03', 'S13'],
+    'A01': ['A02'],
+    'A02': ['A01', 'A03', 'S06'],
+    'A03': ['A02', 'A04', 'R09'],
+    'A04': ['A03'],
+    'S05': ['S06', 'S11'],
+    'S06': ['A02', 'S05', 'S07', 'S12'],
+    'S07': ['S06', 'S13'],
     'S11': ['S05'],
     'S12': ['S06'],
     'S13': ['S07'],
-    'R08': ['A02', 'R09', 'R14'],
-    'R09': ['R08', 'R10', 'A03', 'R15'],
-    'R10': ['R09', 'A04', 'R16'],
+    'R08': ['R09', 'R14'],
+    'R09': ['A03', 'R08', 'R10', 'R15'],
+    'R10': ['R09', 'R16'],
     'R14': ['R08'],
     'R15': ['R09'],
     'R16': ['R10']
@@ -148,27 +148,26 @@ function updateRobotPosition(state) {
 
     // Only update if node changed to trigger CSS transition smoothly
     if (currentRobotNode !== nodeName) {
-        // ── 경로 애니메이션 처리 ──
+        // ── 경로 애니메이션: 현재 이동 구간만 표시 ──
+        clearAllPathAnimations();
+        
         if (previousRobotNode && previousRobotNode !== nodeName) {
-            // 이전 노드에서 현재 노드까지의 경로 계산 & 애니메이션 표시
-            const path = findPath(previousRobotNode, nodeName);
-            if (path && path.length >= 2) {
-                showPathAnimation(path);
-                // 1.5초 후 애니메이션 끄고 도착 이펙트 표시
+            // 직전 노드 → 현재 노드 구간만 애니메이션 (한 구간만)
+            const segmentEl = getPathId(previousRobotNode, nodeName);
+            if (segmentEl) {
+                segmentEl.classList.add('moving');
+                // 3초 후 애니메이션 끄고 도착 이펙트
                 setTimeout(() => {
-                    clearAllPathAnimations();
+                    segmentEl.classList.remove('moving');
                     const arrivedNode = document.getElementById(`node-${nodeName.toLowerCase()}`);
                     if (arrivedNode) {
                         arrivedNode.classList.remove('arrived');
-                        void arrivedNode.offsetWidth; // reflow for re-trigger
+                        void arrivedNode.offsetWidth;
                         arrivedNode.classList.add('arrived');
                         setTimeout(() => arrivedNode.classList.remove('arrived'), 2500);
                     }
-                }, 1500);
+                }, 3000);
             }
-        } else {
-            // 첫 노드 표시 시 애니메이션 없음
-            clearAllPathAnimations();
         }
 
         previousRobotNode = currentRobotNode || nodeName;
