@@ -12,6 +12,7 @@ class ServoArmController {
 private:
     Servo _armServo;
     Servo _gripperServo;
+    bool _armEnabled = false;  // false: 실제 서보 구동 안 함
 
     const int PIN_ARM = 17;
     const int PIN_GRIPPER = 16;
@@ -29,10 +30,17 @@ private:
 public:
     ServoArmController() {}
 
+    void setArmEnabled(bool enabled) { _armEnabled = enabled; }
+    bool isArmEnabled() const { return _armEnabled; }
+
     /**
      * @brief 서보 핀 및 초기 상태 설정
      */
     void init() {
+        if (!_armEnabled) {
+            Serial.println("[ServoArmController] 초기화 생략 (arm 비활성화)");
+            return;
+        }
         // ESP32PWM 타이머 할당 및 주파수 설정
         ESP32PWM::allocateTimer(0);
         _armServo.setPeriodHertz(50);
@@ -52,6 +60,10 @@ public:
      * @brief [1단계] 화분을 집기 위해 그리퍼를 열고 팔을 180도 내린 후 대기합니다.
      */
     void pickReady() {
+        if (!_armEnabled) {
+            Serial.println("[ServoArm] 픽업 준비 (비활성화)");
+            return;
+        }
         Serial.println("[ServoArm] 픽업 준비: 그리퍼 열기 -> 팔 내리기");
         
         // 1. 그리퍼 열어두기
@@ -72,6 +84,10 @@ public:
      * @note pickReady() 이후 로봇이 후진하여 화분과 밀착한 뒤 호출되어야 합니다.
      */
     void pickExecute() {
+        if (!_armEnabled) {
+            Serial.println("[ServoArm] 픽업 실행 (비활성화)");
+            return;
+        }
         Serial.println("[ServoArm] 픽업 실행: 그리퍼 닫기 -> 팔 올리기");
 
         // 1. 그리퍼 닫아서 화분 꽉 잡기
@@ -91,6 +107,10 @@ public:
      * @brief 화분을 내려놓는 동작 (필요 시 호출)
      */
     void dropPot() {
+        if (!_armEnabled) {
+            Serial.println("[ServoArm] 내려놓기 (비활성화)");
+            return;
+        }
         Serial.println("[ServoArm] 내려놓기 시작");
         
         // 1. 적재된 화분을 목적지 바닥으로 내리기 (180도)

@@ -186,7 +186,7 @@ int PathFinder::calculatePath(int startIdx, int targetIdx, int startDir, char* o
         currentDir = exitDir;  // 진입 후 바라보는 방향 = 나간 방향과 동일
     }
 
-    // 목적지별 도착 접미사: a01/a04=UE, s11~r16=(반대회전)BE
+    // 목적지별 도착 접미사: a01/a04=UE, s11~r16=(반대회전)BBE
     if (outLen < 1 || outLen >= PATH_STRING_MAX - 2) {
         outPath[outLen++] = 'E';
     } else {
@@ -195,6 +195,11 @@ int PathFinder::calculatePath(int startIdx, int targetIdx, int startDir, char* o
         bool isSlotEnd = (targetIdx >= 10 && targetIdx <= 15); // s11~s13, r14~r16
         if (isMainEnd) {
             outPath[outLen - 1] = 'U';
+            outPath[outLen++] = 'E';
+        } else if (isSlotEnd && outLen < PATH_STRING_MAX - 3) {
+            outPath[outLen - 1] = oppositeDir(lastCmd);
+            outPath[outLen++] = 'B';
+            outPath[outLen++] = 'B';
             outPath[outLen++] = 'E';
         } else if (isSlotEnd) {
             outPath[outLen - 1] = oppositeDir(lastCmd);
