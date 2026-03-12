@@ -231,6 +231,15 @@ private:
     unsigned long _lastHeartbeatMs;       // 마지막 HEARTBEAT_REQ 전송 시각
     uint8_t _sfamSeq;                     // SFAM 패킷 시퀀스
     uint16_t _currentTaskId;              // 현재 수행 중 task_id (AGV_STATUS_RPT용)
+    bool _pendingInboundPickup = false;   // 입고 픽업 대기 플래그
+    bool _pendingInboundDrop = false;     // 입고 하차 대기 플래그
+
+    // ★ 입고 시나리오 튜닝값 (ms) - 후진 거리 조정용
+    static const unsigned int INBOUND_BACKWARD_MS = 700;
+    static const unsigned int INBOUND_DROP_BACKWARD_MS = 500;
+
+    void executeInboundPickup();           // A01 도착 후 픽업 시퀀스 실행
+    void executeInboundDrop();             // S11 도착 후 하차 시퀀스 실행
 
     void sendSfamTelemetry(int battery);
     void sendSfamHeartbeat();

@@ -40,8 +40,8 @@ private:
     const int STOP_WAIT_TIME = 500;
 
     // 180도 그리퍼 제어값
-    const int GRIPPER_OPEN = 55;      // 놓기
-    const int GRIPPER_CLOSE = 180;    // 잡기
+    const int GRIPPER_OPEN = 180;      // 놓기 (수정됨)
+    const int GRIPPER_CLOSE = 55;      // 잡기 (수정됨)
 
 public:
     ServoArmController() {}

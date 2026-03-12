@@ -283,10 +283,26 @@ void RobotNetworkManager::handleIncoming() {
     // 라인트레이싱 업데이트 (매 사이클 실행)
     _lineFollower.update();
 
-    if (_currentTaskId != 0 && _lineFollower.getState() == RobotState::ARRIVED) {
+    if (_lineFollower.getState() == RobotState::ARRIVED) {
         int nodeIdx = _lineFollower.getCurrentNodeIndex();
-        sendSfamStatusRpt(_currentTaskId, 2, (uint8_t)(nodeIdx >= 0 && nodeIdx < 16 ? nodeIdx + 1 : 0), 0);
-        _currentTaskId = 0;
+
+        // SFAM 상태 리포트
+        if (_currentTaskId != 0) {
+            sendSfamStatusRpt(_currentTaskId, 2, (uint8_t)(nodeIdx >= 0 && nodeIdx < 16 ? nodeIdx + 1 : 0), 0);
+            _currentTaskId = 0;
+        }
+
+        // ★ 입고 픽업 대기 플래그가 켜져 있으면 A01 도착 후 자동 픽업
+        if (_pendingInboundPickup && nodeIdx == 0) {  // nodeIdx 0 = A01
+            _pendingInboundPickup = false;
+            executeInboundPickup();
+        }
+
+        // ★ S11 도착 후 자동 하차 (입고 시나리오 연계)
+        if (_pendingInboundDrop && nodeIdx == 10) {  // nodeIdx 10 = S11
+            _pendingInboundDrop = false;
+            executeInboundDrop();
+        }
     }
 
     // RFID 태그 읽기 (매 사이클 실행)
@@ -616,9 +632,161 @@ void RobotNetworkManager::handleTask(JsonDocument& doc) {
         _armController.releaseGripper();
         sendResponse("SUCCESS", "그리퍼 놓기 완료");
     }
+    else if (strcmp(action, "INBOUND_PICKUP") == 0) {
+        // ★ 입고 명령: A01로 이동 후 자동 픽업 시퀀스
+        Serial.println("[RobotNetworkManager] ★ 입고 명령 수신! A01로 이동 시작");
+
+        int targetIdx = _pathFinder.nodeNameToIndex("a01");
+        if (targetIdx < 0) {
+            sendResponse("FAIL", "A01 노드를 찾을 수 없음");
+            return;
+        }
+        int startIdx = _lineFollower.getCurrentNodeIndex();
+        int startDir = _lineFollower.getCurrentDirection();
+        char pathBuf[64];
+        int nodeSeq[16];
+        int pathLen = _pathFinder.calculatePath(startIdx, targetIdx, startDir, pathBuf, nodeSeq, 16);
+        if (pathLen < 0) {
+            sendResponse("FAIL", "A01까지 경로 탐색 실패");
+            return;
+        }
+        int nodeCount = 0;
+        for (int i = 0; i < 16 && nodeSeq[i] >= 0; i++) nodeCount++;
+
+        _pendingInboundPickup = true;  // 도착 후 자동 픽업 플래그 ON
+        _lineFollower.setPath(String(pathBuf), nodeSeq, nodeCount);
+        _lineFollower.start();
+        Serial.printf("[RobotNetworkManager] 입고 경로: %s (도착 후 자동 픽업 예정)\n", pathBuf);
+        sendResponse("SUCCESS", "입고 명령 수락 - A01로 이동 중");
+    }
     else {
         sendResponse("FAIL", "알 수 없는 작업 명령");
     }
+}
+
+void RobotNetworkManager::executeInboundPickup() {
+    /*
+     * ★ A01 도착 후 입고 픽업 시퀀스
+     * 
+     * 초기 상태: 그리퍼 열림, 암 안쪽(수축)
+     * 
+     * 1. U턴 (180도 회전) - 트레이 쪽을 향하도록
+     * 2. 암 내리기 (CW 180도) - 팔을 트레이 쪽으로 뻗기
+     * 3. 후진 (INBOUND_BACKWARD_MS) - 트레이에 밀착
+     * 4. 그리퍼 닫기 - 화분 잡기
+     * 5. 암 올리기 (CCW 180도) - 화분 들어올리기
+     * 6. S11로 이동
+     */
+    Serial.println("\n======================================");
+    Serial.println("  ★ 입고 픽업 시퀀스 시작");
+    Serial.println("======================================");
+
+    // 1. U턴 (180도 회전)
+    Serial.println("[입고 1/6] U턴 실행...");
+    _motorController.goForward();
+    delay(150);
+    _motorController.uTurnRight();
+    delay(350);
+    // U턴 후 라인 안착 대기
+    int s1, s2, s3, s4, s5;
+    // 가짜 라인 통과
+    while (true) {
+        _motorController.readSensors(s1, s2, s3, s4, s5);
+        if (s3 == 1 || s4 == 1) break;
+    }
+    while (true) {
+        _motorController.readSensors(s1, s2, s3, s4, s5);
+        if (s1 == 0 && s2 == 0 && s3 == 0 && s4 == 0 && s5 == 0) break;
+    }
+    // 진짜 라인 안착
+    while (true) {
+        _motorController.readSensors(s1, s2, s3, s4, s5);
+        if (s3 == 1 && (s2 == 1 || s4 == 1)) break;
+    }
+    _motorController.stop();
+    delay(500);
+    Serial.println("[입고 1/6] U턴 완료!");
+
+    // 2. 암 내리기 (CW 180도 - 팔 뻗기)
+    Serial.println("[입고 2/6] 암 내리기 (CW 180도)...");
+    _armController.rotateArmCW();
+    Serial.println("[입고 2/6] 암 내리기 완료!");
+
+    // 3. 후진 (트레이에 밀착)
+    Serial.printf("[입고 3/6] 후진 %dms...\n", INBOUND_BACKWARD_MS);
+    _motorController.goBackward();
+    delay(INBOUND_BACKWARD_MS);
+    _motorController.stop();
+    delay(500);
+    Serial.println("[입고 3/6] 후진 완료!");
+
+    // 4. 그리퍼 닫기 (화분 잡기)
+    Serial.println("[입고 4/6] 그리퍼 닫기...");
+    _armController.grabGripper();
+    Serial.println("[입고 4/6] 그리퍼 닫기 완료!");
+
+    // 5. 암 올리기 (CCW 180도 - 팔 수축)
+    Serial.println("[입고 5/6] 암 올리기 (CCW 180도)...");
+    _armController.rotateArmCCW();
+    Serial.println("[입고 5/6] 암 올리기 완료!");
+
+    Serial.println("\n======================================");
+    Serial.println("  ★ 픽업 완료! S11로 이동 시작");
+    Serial.println("======================================\n");
+
+    // 6. S11로 이동
+    // 현재 방향은 U턴 후이므로 E방향 (A01에서 A02를 바라봄)
+    _lineFollower.setLocation(0, 1, "a01");  // A01, E방향
+    int targetIdx = _pathFinder.nodeNameToIndex("s11");
+    if (targetIdx >= 0) {
+        int startIdx = 0;  // A01
+        int startDir = 1;  // E
+        char pathBuf[64];
+        int nodeSeq[16];
+        int pathLen = _pathFinder.calculatePath(startIdx, targetIdx, startDir, pathBuf, nodeSeq, 16);
+        if (pathLen >= 0) {
+            int nodeCount = 0;
+            for (int i = 0; i < 16 && nodeSeq[i] >= 0; i++) nodeCount++;
+            
+            _pendingInboundDrop = true;  // S11 도착 후 하차 시퀀스 플래그 ON
+            
+            _lineFollower.setPath(String(pathBuf), nodeSeq, nodeCount);
+            _lineFollower.start();
+            Serial.printf("[입고 6/6] S11 이동 경로: %s\n", pathBuf);
+        } else {
+            Serial.println("[입고 6/6] S11 경로 탐색 실패!");
+        }
+    } else {
+        Serial.println("[입고 6/6] S11 노드를 찾을 수 없음!");
+    }
+}
+
+void RobotNetworkManager::executeInboundDrop() {
+    /*
+     * ★ S11 도착 후 입고 하차 시퀀스
+     * 1. 후진 (0.5s) - 슬롯 체결/안정용
+     * 2. 화분 내려놓기
+     */
+    Serial.println("\n======================================");
+    Serial.println("  ★ 입고 하차 시퀀스 시작 (S11)");
+    Serial.println("======================================");
+
+    // 1. 후진 (0.5초)
+    Serial.printf("[하차 1/2] 후진 %dms...\n", INBOUND_DROP_BACKWARD_MS);
+    _motorController.goBackward();
+    delay(INBOUND_DROP_BACKWARD_MS);
+    _motorController.stop();
+    delay(500);
+    Serial.println("[하차 1/2] 후진 완료!");
+
+    // 2. 화분 내려놓기
+    Serial.println("[하차 2/2] 암 내리고 그리퍼 열기...");
+    _armController.dropPot();
+    Serial.println("[하차 2/2] 하차 완료!");
+    
+    Serial.println("\n======================================");
+    Serial.println("  ★ 픽업 및 하차 전체 시퀀스 종료!");
+    Serial.println("======================================\n");
 }
 
 void RobotNetworkManager::handleManual(JsonDocument& doc) {

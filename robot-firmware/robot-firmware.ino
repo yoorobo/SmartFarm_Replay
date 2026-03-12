@@ -62,7 +62,7 @@ void setup() {
     // 1. 하드웨어 초기화 (모터, 센서)
     robotNetworkManager.setArmEnabled(ENABLE_ARM);
     robotNetworkManager.initHardware();
-    robotNetworkManager.setLocationByNodeName("a01", 1);  // 초기 위치: a01, E 방향
+    robotNetworkManager.setLocationByNodeName("a02", 3);  // 초기 위치: a02, W 방향 (A01 바라봄)
 
     // 2. Wi-Fi 연결
     Serial.println("\n[Main] Wi-Fi 연결 중...");
