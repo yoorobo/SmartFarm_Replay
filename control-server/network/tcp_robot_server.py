@@ -92,32 +92,37 @@ def handle_hardware_client(client_socket, addr):
                     
                     # 2. 로봇 텔레메트리 데이터 (0x10)
                     elif msg_type == MSG_AGV_TELEMETRY:
-                        # 0: status, 1: batt, 2: node_idx, 3-4: task_id, 5: line_mask, 6: pwm, 7: err
+                        # 0: status, 1: batt, 2: node_idx, 3: next_node_idx, 4: task_id, 5: line_mask, 6: pwm, 7: err
                         if len(payload) >= 8:
                             batt = payload[1]
                             node_idx = payload[2]
+                            next_node_idx = payload[3]  # 다음 목적지 노드 (0=없음)
                             
                             # 로봇 DB ID 매핑
                             agv_db_id = "R01" if src_id == 0x01 else f"R{src_id:02d}"
                             
-                            # Node Name 매핑
-                            if 1 <= node_idx <= 4:
-                                node_str = f"a{node_idx:02d}"
-                            elif 5 <= node_idx <= 7:
-                                node_str = f"s{node_idx:02d}"
-                            elif 8 <= node_idx <= 10:
-                                node_str = f"r{node_idx:02d}"
-                            elif 11 <= node_idx <= 13:
-                                node_str = f"s{node_idx:02d}"
-                            elif 14 <= node_idx <= 16:
-                                node_str = f"r{node_idx:02d}"
-                            else:
-                                node_str = f"node-{node_idx:02d}"
+                            # Node Name 매핑 함수
+                            def idx_to_node_str(idx):
+                                if 1 <= idx <= 4:
+                                    return f"a{idx:02d}"
+                                elif 5 <= idx <= 7:
+                                    return f"s{idx:02d}"
+                                elif 8 <= idx <= 10:
+                                    return f"r{idx:02d}"
+                                elif 11 <= idx <= 13:
+                                    return f"s{idx:02d}"
+                                elif 14 <= idx <= 16:
+                                    return f"r{idx:02d}"
+                                return None
+
+                            node_str = idx_to_node_str(node_idx) or f"node-{node_idx:02d}"
+                            next_node_str = idx_to_node_str(next_node_idx)  # None if 0 or invalid
                                 
                             # API용 최신 상태 캐시 저장
                             latest_robot_state[agv_db_id] = {
                                 "battery": batt,
                                 "node": node_str,
+                                "next_node": next_node_str,
                                 "loaded": False
                             }
                             

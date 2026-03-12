@@ -127,9 +127,6 @@ function showPathAnimation(pathNodes) {
     }
 }
 
-// 이전 위치 추적용
-let previousRobotNode = null;
-
 function pollRobotState() {
     fetch('/api/robot_state')
         .then(res => res.json())
@@ -143,34 +140,25 @@ function pollRobotState() {
 function updateRobotPosition(state) {
     const agvElem = document.getElementById("agv-robot");
     const nodeName = state.node_name || state.node || null;
+    const nextNode = state.next_node || null;  // 다음 목적지 노드
 
     if (!nodeName || nodeName.includes("-")) return;
 
-    // Only update if node changed to trigger CSS transition smoothly
-    if (currentRobotNode !== nodeName) {
-        // ── 경로 애니메이션: 현재 이동 구간만 표시 ──
+    // Only update if node or next_node changed
+    if (currentRobotNode !== nodeName || agvElem.dataset.nextNode !== (nextNode || '')) {
+        // ── 경로 애니메이션: 현재 노드 → 다음 노드 방향 표시 ──
         clearAllPathAnimations();
         
-        if (previousRobotNode && previousRobotNode !== nodeName) {
-            // 직전 노드 → 현재 노드 구간만 애니메이션 (한 구간만)
-            const segmentEl = getPathId(previousRobotNode, nodeName);
+        if (nextNode) {
+            // 다음 목적지가 있으면: 현재→다음 구간에 방향 애니메이션 ON
+            const segmentEl = getPathId(nodeName, nextNode);
             if (segmentEl) {
                 segmentEl.classList.add('moving');
-                // 3초 후 애니메이션 끄고 도착 이펙트
-                setTimeout(() => {
-                    segmentEl.classList.remove('moving');
-                    const arrivedNode = document.getElementById(`node-${nodeName.toLowerCase()}`);
-                    if (arrivedNode) {
-                        arrivedNode.classList.remove('arrived');
-                        void arrivedNode.offsetWidth;
-                        arrivedNode.classList.add('arrived');
-                        setTimeout(() => arrivedNode.classList.remove('arrived'), 2500);
-                    }
-                }, 3000);
             }
         }
-
-        previousRobotNode = currentRobotNode || nodeName;
+        // 다음 목적지가 없으면 (정지/적재/하차): 애니메이션 OFF
+        
+        agvElem.dataset.nextNode = nextNode || '';
         currentRobotNode = nodeName;
         agvElem.classList.remove('hidden');
 
