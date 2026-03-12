@@ -51,10 +51,13 @@ def receive_rfid_inoutbound():
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
-            # 1. 태그 UID로 트레이 정보 확인
+            # 1. 태그 UID로 트레이 정보 확인 (품종 및 작물명 포함)
             cursor.execute("""
-                SELECT tray_id, variety_id, tray_status
-                FROM trays WHERE nfc_uid = %s AND is_active = TRUE
+                SELECT t.tray_id, t.variety_id, t.tray_status, v.variety_name, c.crop_name
+                FROM trays t
+                JOIN seedling_varieties v ON t.variety_id = v.variety_id
+                JOIN crops c ON v.crop_id = c.crop_id
+                WHERE t.nfc_uid = %s AND t.is_active = TRUE
             """, (uid,))
             tray_info = cursor.fetchone()
 
@@ -114,11 +117,12 @@ def receive_rfid_inoutbound():
             cursor.execute("UPDATE trays SET tray_status = 2 WHERE nfc_uid = %s", (uid,))
 
         conn.commit()
+        variety_display = f"{tray_info['variety_name']}({tray_info['crop_name']})"
         print(f"🤖 [배차 완료] {source_node} → {node_info['node_name']}({target_node}) (Task ID: {task_id})")
 
         return jsonify({
             "status": "success", 
-            "message": f"화분 {uid[-4:]} 입고 시작. 목적지: {node_info['node_name']}",
+            "message": f"{variety_display} 입고 시작. 목적지: {node_info['node_name']}",
             "task_id": task_id
         }), 200
 
