@@ -10,7 +10,6 @@
 #define WIFI_SSID "addinedu_201class_4-2.4G"
 #define WIFI_PASSWORD "201class4!"
 #define SERVER_IP "192.168.0.132"
-
 #define SERVER_TCP_PORT 8080
 #define SERVER_UDP_PORT 7070
 
@@ -69,7 +68,7 @@ void setup() {
 
   config.frame_size = FRAMESIZE_QVGA;
   config.jpeg_quality = 10;
-  config.fb_count = 3:
+  config.fb_count = 3;
   config.grab_mode = CAMERA_GRAB_LATEST;
 
   esp_err_t err = esp_camera_init(&config);
