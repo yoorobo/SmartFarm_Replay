@@ -8,12 +8,15 @@
  * @class ServoArmController
  * @brief 17번(360도 연속 회전 팔) 및 16번(180도 그리퍼) 서보모터 제어 클래스
  *
+ * ★ minsung_servo 예제와 동일한 패턴 적용:
+ *   - attach는 init()에서 한 번만!
+ *   - detach 하지 않음! (반복 attach/detach 시 글리치 펄스로 한 방향만 회전)
+ *   - 정지 = write(MOTOR_STOP), 방향전환 = write(방향값)
+ *
  * 360도 연속회전 서보 제어 방식 (write 기준):
  *   write(90)  = 정지
  *   write(0)   = 시계방향 회전
  *   write(180) = 반시계방향 회전
- *
- * @note MOVE_TIME_HALF을 조정하여 반 바퀴(180도) 회전량을 맞추세요.
  */
 class ServoArmController {
 private:
@@ -25,36 +28,20 @@ private:
     const int PIN_ARM = 17;
     const int PIN_GRIPPER = 16;
 
-    // 360도 연속회전 모터 제어값
+    // 360도 연속회전 모터 제어값 (minsung_servo 예제와 동일)
     const int MOTOR_STOP = 90;
     const int DIR_CW = 0;             // 시계방향
     const int DIR_CCW = 180;          // 반시계방향
 
-    // 반 바퀴(180도) 회전 시간 (ms) - 기구 부하에 따라 조정
+    // ★ 핵심 튜닝 포인트: 반 바퀴(180도) 회전 시간 (ms)
     const int MOVE_TIME_HALF = 780;
-    const int MOVE_TIME_FULL = 0;
+
+    // 정지 후 안정화 대기 시간 (ms)
+    const int STOP_WAIT_TIME = 500;
 
     // 180도 그리퍼 제어값
     const int GRIPPER_OPEN = 55;      // 놓기
     const int GRIPPER_CLOSE = 180;    // 잡기
-
-    /**
-     * @brief 암 서보를 안전하게 attach (즉시 정지 신호 보낸 후 안정화)
-     */
-    void armAttach() {
-        _armServo.attach(PIN_ARM, 500, 2400);
-        _armServo.write(MOTOR_STOP);  // attach 직후 즉시 정지!
-        delay(200);                    // 안정화 대기
-    }
-
-    /**
-     * @brief 암 서보를 안전하게 detach (정지 후 해제)
-     */
-    void armDetach() {
-        _armServo.write(MOTOR_STOP);
-        delay(100);
-        _armServo.detach();
-    }
 
 public:
     ServoArmController() {}
@@ -69,57 +56,50 @@ public:
         }
         ESP32PWM::allocateTimer(0);
         ESP32PWM::allocateTimer(1);
-        
-        // 핀17, 핀16 모두 초기화 시 attach 하지 않음!
-        // 웹 버튼 명령이 올 때만 attach → 동작 → detach
+
+        // ★ minsung_servo 패턴: setup()에서 한 번 attach, 이후 절대 detach 안 함!
         _armServo.setPeriodHertz(50);
+        _armServo.attach(PIN_ARM, 500, 2400);
+        _armServo.write(MOTOR_STOP);   // 처음에는 반드시 정지 상태로 대기
+        delay(1000);                    // 충분한 안정화 대기
+
         _gripperServo.setPeriodHertz(50);
-        
-        Serial.println("[ServoArmController] 초기화 완료 (핀17/16 모두 명령 시에만 동작)");
+
+        Serial.println("[ServoArmController] 초기화 완료 (암 모터 attach 유지, 그리퍼는 명령 시에만 동작)");
     }
 
     // ===================================================
     // 암 모터 (360도 연속회전) 제어 함수
+    // ★ minsung_servo loop() 패턴 그대로:
+    //   write(방향) → delay(시간) → write(STOP) → delay(대기)
     // ===================================================
 
     void rotateArmCW() {
         if (!_armEnabled) return;
-        Serial.println(" -> [동작] 암 시계방향 회전");
-        armAttach();
-        _armServo.write(DIR_CW);
-        delay(MOVE_TIME_FULL);
-        armDetach();
+        Serial.println(" -> [동작] 암 시계방향 180도 회전");
+        _armServo.write(DIR_CW);           // 시계방향 회전 시작
+        delay(MOVE_TIME_HALF);             // 780ms = 180도
+        _armServo.write(MOTOR_STOP);       // ★ 도착 후 정지
+        delay(STOP_WAIT_TIME);             // 안정화 대기
         Serial.println(" -> 암 시계방향 완료!");
     }
 
     void rotateArmCCW() {
         if (!_armEnabled) return;
-        Serial.println(" -> [동작] 암 반시계방향 회전");
-        armAttach();
-        _armServo.write(DIR_CCW);
-        delay(MOVE_TIME_FULL);
-        armDetach();
+        Serial.println(" -> [동작] 암 반시계방향 180도 회전");
+        _armServo.write(DIR_CCW);          // 반시계방향 회전 시작
+        delay(MOVE_TIME_HALF);             // 780ms = 180도
+        _armServo.write(MOTOR_STOP);       // ★ 도착 후 정지
+        delay(STOP_WAIT_TIME);             // 안정화 대기
         Serial.println(" -> 암 반시계방향 완료!");
     }
 
     void rotateArm180CW() {
-        if (!_armEnabled) return;
-        Serial.println(" -> [동작] 암 시계방향 180도");
-        armAttach();
-        _armServo.write(DIR_CW);
-        delay(MOVE_TIME_HALF);
-        armDetach();
-        Serial.println(" -> 암 180도 완료!");
+        rotateArmCW();
     }
 
     void rotateArm180CCW() {
-        if (!_armEnabled) return;
-        Serial.println(" -> [동작] 암 반시계방향 180도");
-        armAttach();
-        _armServo.write(DIR_CCW);
-        delay(MOVE_TIME_HALF);
-        armDetach();
-        Serial.println(" -> 암 180도 완료!");
+        rotateArmCCW();
     }
 
     // ===================================================
@@ -155,7 +135,6 @@ public:
         Serial.println("[ServoArm] 픽업 준비: 그리퍼 열기 -> 팔 내리기");
         releaseGripper();
         rotateArmCW();
-        delay(500);
     }
 
     void pickExecute() {
@@ -171,7 +150,6 @@ public:
         if (!_armEnabled) { Serial.println("[ServoArm] 내려놓기 (비활성화)"); return; }
         Serial.println("[ServoArm] 내려놓기 시작");
         rotateArmCW();
-        delay(500);
         releaseGripper();
         delay(500);
         rotateArmCCW();
@@ -180,3 +158,4 @@ public:
 };
 
 #endif // SERVO_ARM_CONTROLLER_H
+
