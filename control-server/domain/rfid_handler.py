@@ -90,7 +90,7 @@ def receive_rfid_inoutbound():
                   AND fn.current_variety_id = %s 
                   AND fn.is_active = TRUE
                   AND (CAST(fn.max_capacity AS SIGNED) - CAST(fn.current_quantity AS SIGNED) - CAST(IFNULL(tt.reserved, 0) AS SIGNED)) > 0
-                ORDER BY available_spots DESC 
+                ORDER BY available_spots DESC, fn.node_id ASC
                 LIMIT 1
             """, (variety_id,))
             node_info = cursor.fetchone()
@@ -115,6 +115,10 @@ def receive_rfid_inoutbound():
             
             # 5. 트레이 상태 IN_TRANSIT(2) 변경
             cursor.execute("UPDATE trays SET tray_status = 2 WHERE nfc_uid = %s", (uid,))
+
+            # 6. 목적지 노드에 품종 정보 선제적 업데이트 (환경 제어 연동)
+            # 입고 작업이 생성됨과 동시에 해당 구역의 환경 기준을 품종에 맞춰 조정합니다.
+            cursor.execute("UPDATE farm_nodes SET current_variety_id = %s WHERE node_id = %s", (variety_id, target_node))
 
         conn.commit()
         variety_display = f"{tray_info['variety_name']}({tray_info['crop_name']})"
