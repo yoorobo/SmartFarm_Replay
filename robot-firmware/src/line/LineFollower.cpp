@@ -351,9 +351,24 @@ void LineFollower::executeCrossroadCommand() {
         }
 
         case PathCommand::BACKWARD: {
-            runBackwardUntilCrossroad(true);
-            _backwardStepDelta = 1;
-            stepDelta = 0;
+            if (_currentStep + 1 < (int)_pathString.length() && _pathString.charAt(_currentStep + 1) == 'E') {
+                Serial.println("[LineFollower] 마지막 B 명령 감지: 1초간 후진 (라인 트레이싱)");
+                unsigned long startMs = millis();
+                while (millis() - startMs < 1000) {
+                    _motor.readSensors(_s1, _s2, _s3, _s4, _s5);
+                    followLineBackward(_s1, _s2, _s3, _s4, _s5);
+                    delay(5);
+                }
+                _motor.stop();
+                
+                _currentStep++; // E 명령으로 넘김
+                executeCrossroadCommand(); // 도착(E) 명령 바로 처리
+                return; // 이미 다음 명령 처리 및 스텝 처리가 되었으므로 여기서 종료
+            } else {
+                runBackwardUntilCrossroad(true);
+                _backwardStepDelta = 1;
+                stepDelta = 0;
+            }
             break;
         }
 

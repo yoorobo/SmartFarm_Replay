@@ -12,7 +12,7 @@ class ServoArmController {
 private:
     Servo _armServo;
     Servo _gripperServo;
-    bool _armEnabled = false;  // false: 실제 서보 구동 안 함
+    bool _armEnabled = true;  // false: 실제 서보 구동 안 함
 
     // 핀 번호 설정
     const int PIN_ARM = 17;
@@ -37,9 +37,6 @@ public:
     void setArmEnabled(bool enabled) { _armEnabled = enabled; }
     bool isArmEnabled() const { return _armEnabled; }
 
-    /**
-     * @brief 서보 핀 및 초기 상태 설정
-     */
     void init() {
         if (!_armEnabled) {
             Serial.println("[ServoArmController] 초기화 생략 (arm 비활성화)");
@@ -49,13 +46,15 @@ public:
         ESP32PWM::allocateTimer(0);
         ESP32PWM::allocateTimer(1);
         
+        // 1. 암 모터를 정지 상태로 초기화 (움직이지 않게)
         _armServo.setPeriodHertz(50);
-        _armServo.attach(PIN_ARM, 500, 2400);
         _armServo.writeMicroseconds(ARM_STOP); 
+        _armServo.attach(PIN_ARM, 500, 2400);
 
+        // 2. 그리퍼 모터를 기본 벌린 각도(180도)로 초기화
         _gripperServo.setPeriodHertz(50);
-        _gripperServo.attach(PIN_GRIPPER, 500, 2400);
         _gripperServo.write(GRIPPER_OPEN); // 초기 상태는 '놓기(180도)'
+        _gripperServo.attach(PIN_GRIPPER, 500, 2400);
         
         Serial.println("[ServoArmController] 초기화 완료 (Arm: 17, Gripper: 16)");
     }
