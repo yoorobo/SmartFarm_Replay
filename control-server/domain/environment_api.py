@@ -96,6 +96,13 @@ def control_sensor():
     print(f"🎮 [API 수동제어] node={node_id}, device={device}(act_id={act_id}), state={state}, value={value}")
     
     # TCP 소켓으로 직접 전송!
+    # 먼저 수동 모드(ACT_ID_MODE=0, VALUE=0)로 강제 전환 후, 장치 제어 전송
+    # (Arduino SoftwareSerial 반이중 통신 패킷 유실 방지를 위해 0.2초 대기)
+    if act_id != 0:
+        send_actuator_command(node_id, 0, 0)
+        import time
+        time.sleep(0.2)
+        
     success = send_actuator_command(node_id, act_id, value)
     if not success:
         return jsonify({"ok": False, "error": f"Node {node_id} is offline or command failed"}), 503
