@@ -232,7 +232,7 @@ void LineFollower::executeCrossroadCommand() {
             Serial.println("[LineFollower] 목적지 A01(입고장) 감지 -> 암 회전 + 후진");
             _arm.rotateArmCW();
             _motor.goBackward();
-            delay(700);
+            delay(1000);
             _motor.stop();
             delay(500);
             Serial.println("[LineFollower] 암 회전 + 후진 완료!");
@@ -268,7 +268,7 @@ void LineFollower::executeCrossroadCommand() {
                 Serial.println("[LineFollower] 목적지 A01(입고장) 감지 -> 암 회전 + 후진");
                 _arm.rotateArmCW();
                 _motor.goBackward();
-                delay(700);
+                delay(1000);
                 _motor.stop();
                 delay(500);
                 Serial.println("[LineFollower] 암 회전 + 후진 완료!");
