@@ -228,7 +228,9 @@ void LineFollower::executeCrossroadCommand() {
         _isRunning = false;
         Serial.println("[LineFollower] ✅ 목적지 도착");
         
+        /*
         // --- [자동 픽업 로직] 목적지가 입고장(A01, index 0)인 경우 ---
+        // 웹에서 버튼을 눌렀을 때만 작동하도록 자율 작동 로직 임시 주석 처리
         if (_currentIdx == 0) {
             Serial.println("[LineFollower] 목적지 A01(입고장) 감지 -> 자율 픽업 시퀀스 시작!");
             
@@ -238,7 +240,7 @@ void LineFollower::executeCrossroadCommand() {
             // 2. 후진하여 트레이와 밀착 (약 0.5초 ~ 1초 후진, 하드웨어 테스트 후 시간 조정 필요)
             Serial.println("[LineFollower] 픽업을 위해 후진하여 트레이에 밀착...");
             _motor.goBackward();
-            delay(800);  // 800ms 후진 (임시값)
+            delay(700);  // 0.7초 후진
             _motor.stop();
             delay(500);  // 안정화 대기
             
@@ -247,7 +249,13 @@ void LineFollower::executeCrossroadCommand() {
             
             Serial.println("[LineFollower] 자율 픽업 시퀀스 완료!");
         }
+        // --- [s11 도착] 암 180도 회전 ---
+        if (_currentIdx == 10) {
+            Serial.println("[LineFollower] 목적지 S11 도착 -> 암 180도 회전");
+            _arm.rotateArm180CCW();
+        }
         // -------------------------------------------------------------
+        */
         
         return;
     }
@@ -275,18 +283,26 @@ void LineFollower::executeCrossroadCommand() {
             _isRunning = false;
             Serial.println("[LineFollower] ✅ 목적지 도착 (E 명령)");
             
+            /*
             // --- [자동 픽업 로직] 목적지가 입고장(A01, index 0)인 경우 ---
+            // 웹에서 버튼을 눌렀을 때만 작동하도록 자율 작동 로직 임시 주석 처리
             if (_currentIdx == 0) {
                 Serial.println("[LineFollower] 목적지 A01(입고장) 감지 -> 자율 픽업 시퀀스 시작!");
                 _arm.pickReady();
                 _motor.goBackward();
-                delay(800);  // 밀착 전진 (필요 시 시간 조절)
+                delay(700);  // 0.7초 후진
                 _motor.stop();
                 delay(500);
                 _arm.pickExecute();
                 Serial.println("[LineFollower] 자율 픽업 시퀀스 완료!");
             }
+            // --- [s11 도착] 암 180도 회전 ---
+            if (_currentIdx == 10) {
+                Serial.println("[LineFollower] 목적지 S11 도착 -> 암 180도 회전");
+                _arm.rotateArm180CCW();
+            }
             // -------------------------------------------------------------
+            */
             
             break;
 
@@ -351,9 +367,24 @@ void LineFollower::executeCrossroadCommand() {
         }
 
         case PathCommand::BACKWARD: {
-            runBackwardUntilCrossroad(true);
-            _backwardStepDelta = 1;
-            stepDelta = 0;
+            if (_currentStep + 1 < (int)_pathString.length() && _pathString.charAt(_currentStep + 1) == 'E') {
+                Serial.println("[LineFollower] 마지막 B 명령 감지: 1초간 후진 (라인 트레이싱)");
+                unsigned long startMs = millis();
+                while (millis() - startMs < 1000) {
+                    _motor.readSensors(_s1, _s2, _s3, _s4, _s5);
+                    followLineBackward(_s1, _s2, _s3, _s4, _s5);
+                    delay(5);
+                }
+                _motor.stop();
+                
+                _currentStep++; // E 명령으로 넘김
+                executeCrossroadCommand(); // 도착(E) 명령 바로 처리
+                return; // 이미 다음 명령 처리 및 스텝 처리가 되었으므로 여기서 종료
+            } else {
+                runBackwardUntilCrossroad(true);
+                _backwardStepDelta = 1;
+                stepDelta = 0;
+            }
             break;
         }
 

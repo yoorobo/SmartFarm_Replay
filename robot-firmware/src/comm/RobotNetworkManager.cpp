@@ -51,6 +51,10 @@ void RobotNetworkManager::initHardware() {
     Serial.println("[RobotNetworkManager] 하드웨어 초기화 완료");
 }
 
+void RobotNetworkManager::setArmEnabled(bool enabled) {
+    _armController.setArmEnabled(enabled);
+}
+
 RobotNetworkManager::~RobotNetworkManager() {
     _tcpClient.stop();
     Serial.println("[RobotNetworkManager] 소멸자 – 연결 해제");
@@ -595,6 +599,22 @@ void RobotNetworkManager::handleTask(JsonDocument& doc) {
     else if (strcmp(action, "DROP") == 0) {
         _armController.dropPot();
         sendResponse("SUCCESS", "화분 내려놓기 완료");
+    }
+    else if (strcmp(action, "ARM_CW_180") == 0) {
+        _armController.rotateArm180CW();
+        sendResponse("SUCCESS", "암 시계방향 180도 회전 완료");
+    }
+    else if (strcmp(action, "ARM_CCW_180") == 0) {
+        _armController.rotateArm180CCW();
+        sendResponse("SUCCESS", "암 반시계방향 180도 회전 완료");
+    }
+    else if (strcmp(action, "GRIPPER_GRAB") == 0) {
+        _armController.grabGripper();
+        sendResponse("SUCCESS", "그리퍼 잡기 완료");
+    }
+    else if (strcmp(action, "GRIPPER_RELEASE") == 0) {
+        _armController.releaseGripper();
+        sendResponse("SUCCESS", "그리퍼 놓기 완료");
     }
     else {
         sendResponse("FAIL", "알 수 없는 작업 명령");

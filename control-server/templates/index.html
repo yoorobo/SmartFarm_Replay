@@ -183,6 +183,16 @@
                         <button class="btn btn-danger" onclick="emergencyStop()">🚨 시스템 비상 정지</button>
                     </div>
 
+                    <div class="floating-controls arm-gripper-panel" style="position: absolute; right: 20px; bottom: 160px; display: flex; flex-direction: column; gap: 8px; background: var(--panel-bg, #1c2128); padding: 12px; border-radius: 12px; border: 1px solid var(--border-color, #30363d);">
+                        <h4 style="margin: 0 0 8px 0; font-size: 13px;">암/그리퍼 제어</h4>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button class="btn btn-secondary" onclick="sendArmCommand('ARM_CW_180')" style="font-size: 12px; padding: 8px;">암 시계 180도</button>
+                            <button class="btn btn-secondary" onclick="sendArmCommand('ARM_CCW_180')" style="font-size: 12px; padding: 8px;">암 반시계 180도</button>
+                            <button class="btn btn-secondary" onclick="sendArmCommand('GRIPPER_GRAB')" style="font-size: 12px; padding: 8px;">그리퍼 잡기</button>
+                            <button class="btn btn-secondary" onclick="sendArmCommand('GRIPPER_RELEASE')" style="font-size: 12px; padding: 8px;">그리퍼 놓기</button>
+                        </div>
+                    </div>
+
                 </div>
 
             </section>

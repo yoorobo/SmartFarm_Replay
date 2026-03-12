@@ -289,6 +289,23 @@ function emergencyStop() {
         });
 }
 
+function sendArmCommand(action) {
+    fetch('/api/robot/arm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: action, robot_id: agvRobotId })
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.ok) {
+                addLocalLog(`[ARM] ${action} 명령 전송 성공`, 'sys-msg');
+            } else {
+                addLocalLog(`[ARM] ${action} 실패: ${data.error || '로봇 미연결'}`, 'sys-msg');
+            }
+        })
+        .catch(err => addLocalLog(`[ARM] ${action} 요청 실패: ${err.message}`, 'sys-msg'));
+}
+
 function addLocalLog(msg, cssClass) {
     const container = document.getElementById("agv-log-container");
     const time = new Date().toTimeString().split(' ')[0];

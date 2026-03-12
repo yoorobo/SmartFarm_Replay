@@ -16,11 +16,11 @@
 // ============================================================
 
 MotorController::MotorController()
-    : _speedForward(200)
-    , _speedSoft(200)
+    : _speedForward(190)
+    , _speedSoft(190)
     , _speedHard(210)
-    , _speedSoftSlow(200)   // 부드러운 회전 시 느린 쪽 모터 속도
-    , _speedBackwardSoftSlow(200)  // 후진 라인 추종 보정 시 느린 쪽 (80~120 조정)
+    , _speedSoftSlow(190)   // 부드러운 회전 시 느린 쪽 모터 속도
+    , _speedBackwardSoftSlow(180)  // 후진 라인 추종 보정 시 느린 쪽 (80~120 조정)
 {
 }
 

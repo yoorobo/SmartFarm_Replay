@@ -13,15 +13,9 @@
  */
 
 // Wi-Fi / 서버 설정 (수동 수정)
-<<<<<<< HEAD
-#define WIFI_SSID     "addinedu_201class_4-2.4G"
-#define WIFI_PASSWORD "201class4!"
-#define SERVER_IP     "192.168.0.17"   // control-server IP (로컬: 127.0.0.1)
-=======
-#define WIFI_SSID     "U+Net2890"
-#define WIFI_PASSWORD "5000008772"
-#define SERVER_IP     "192.168.0.132"   // control-server IP (로컬: 127.0.0.1)
->>>>>>> 83ccd48bad5a2318bd7ecd40d882c72283379dab
+#define WIFI_SSID     "ZAKSIM4_2.4G"
+#define WIFI_PASSWORD "zaksim123@"
+#define SERVER_IP     "192.168.8.52"   // control-server IP (로컬: 127.0.0.1)
 #define SERVER_TCP_PORT 8000           // control-server AGV TCP 포트
 #define SERVER_UDP_PORT 7070
 
@@ -31,6 +25,8 @@
 // ============================================================
 //  설정값
 // ============================================================
+
+#define ENABLE_ARM 1  // 0=암 비활성, 1=암/그리퍼 웹 제어 활성
 
 // 로봇 식별자
 const char* ROBOT_ID = "R01";
@@ -64,6 +60,7 @@ void setup() {
     Serial.println("========================================");
 
     // 1. 하드웨어 초기화 (모터, 센서)
+    robotNetworkManager.setArmEnabled(ENABLE_ARM);
     robotNetworkManager.initHardware();
     robotNetworkManager.setLocationByNodeName("a01", 1);  // 초기 위치: a01, E 방향
 

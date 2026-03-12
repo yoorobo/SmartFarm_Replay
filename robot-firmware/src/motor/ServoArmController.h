@@ -6,26 +6,42 @@
 
 /**
  * @class ServoArmController
- * @brief 17번(360도 연속 회전 팔) 및 16번(180도 그리퍼) 서보모터 제어 클래스 
+ * @brief 17번(360도 연속 회전 팔) 및 16번(180도 그리퍼) 서보모터 제어 클래스
+ *
+ * ★ minsung_servo 예제와 동일한 패턴 적용:
+ *   - attach는 init()에서 한 번만!
+ *   - detach 하지 않음! (반복 attach/detach 시 글리치 펄스로 한 방향만 회전)
+ *   - 정지 = write(MOTOR_STOP), 방향전환 = write(방향값)
+ *
+ * 360도 연속회전 서보 제어 방식 (write 기준):
+ *   write(90)  = 정지
+ *   write(0)   = 시계방향 회전
+ *   write(180) = 반시계방향 회전
  */
 class ServoArmController {
 private:
     Servo _armServo;
     Servo _gripperServo;
-    bool _armEnabled = false;  // false: 실제 서보 구동 안 함
+    bool _armEnabled = false;
 
+    // 핀 번호 설정
     const int PIN_ARM = 17;
     const int PIN_GRIPPER = 16;
 
-    // 360도 팔 모터 제어값 및 시간
-    const int ARM_STOP = 90;
-    const int ARM_FORWARD = 0;     // 팔 내리기 방향
-    const int ARM_BACKWARD = 180;  // 팔 올리기 방향
-    const int ARM_MOVE_TIME = 780; // 180도 회전 시 필요한 시간 (ms)
+    // 360도 연속회전 모터 제어값 (minsung_servo 예제와 동일)
+    const int MOTOR_STOP = 90;
+    const int DIR_CW = 0;             // 시계방향
+    const int DIR_CCW = 180;          // 반시계방향
 
-    // 180도 그리퍼 제어값 (각도)
-    const int GRIPPER_OPEN = 60;   // 열림
-    const int GRIPPER_CLOSE = 0;   // 닫힘 (화분 파지)
+    // ★ 핵심 튜닝 포인트: 반 바퀴(180도) 회전 시간 (ms)
+    const int MOVE_TIME_HALF = 780;
+
+    // 정지 후 안정화 대기 시간 (ms)
+    const int STOP_WAIT_TIME = 500;
+
+    // 180도 그리퍼 제어값
+    const int GRIPPER_OPEN = 55;      // 놓기
+    const int GRIPPER_CLOSE = 180;    // 잡기
 
 public:
     ServoArmController() {}
@@ -33,103 +49,113 @@ public:
     void setArmEnabled(bool enabled) { _armEnabled = enabled; }
     bool isArmEnabled() const { return _armEnabled; }
 
-    /**
-     * @brief 서보 핀 및 초기 상태 설정
-     */
     void init() {
         if (!_armEnabled) {
             Serial.println("[ServoArmController] 초기화 생략 (arm 비활성화)");
             return;
         }
-        // ESP32PWM 타이머 할당 및 주파수 설정
         ESP32PWM::allocateTimer(0);
+        ESP32PWM::allocateTimer(1);
+
+        // ★ minsung_servo 패턴: setup()에서 한 번 attach, 이후 절대 detach 안 함!
         _armServo.setPeriodHertz(50);
+        _armServo.attach(PIN_ARM, 500, 2400);
+        _armServo.write(MOTOR_STOP);   // 처음에는 반드시 정지 상태로 대기
+        delay(1000);                    // 충분한 안정화 대기
+
         _gripperServo.setPeriodHertz(50);
 
-        _armServo.attach(PIN_ARM, 500, 2400);
+        Serial.println("[ServoArmController] 초기화 완료 (암 모터 attach 유지, 그리퍼는 명령 시에만 동작)");
+    }
+
+    // ===================================================
+    // 암 모터 (360도 연속회전) 제어 함수
+    // ★ minsung_servo loop() 패턴 그대로:
+    //   write(방향) → delay(시간) → write(STOP) → delay(대기)
+    // ===================================================
+
+    void rotateArmCW() {
+        if (!_armEnabled) return;
+        Serial.println(" -> [동작] 암 시계방향 180도 회전");
+        _armServo.write(DIR_CW);           // 시계방향 회전 시작
+        delay(MOVE_TIME_HALF);             // 780ms = 180도
+        _armServo.write(MOTOR_STOP);       // ★ 도착 후 정지
+        delay(STOP_WAIT_TIME);             // 안정화 대기
+        Serial.println(" -> 암 시계방향 완료!");
+    }
+
+    void rotateArmCCW() {
+        if (!_armEnabled) return;
+        Serial.println(" -> [동작] 암 반시계방향 180도 회전");
+        _armServo.write(DIR_CCW);          // 반시계방향 회전 시작
+        delay(MOVE_TIME_HALF);             // 780ms = 180도
+        _armServo.write(MOTOR_STOP);       // ★ 도착 후 정지
+        delay(STOP_WAIT_TIME);             // 안정화 대기
+        Serial.println(" -> 암 반시계방향 완료!");
+    }
+
+    void rotateArm180CW() {
+        rotateArmCW();
+    }
+
+    void rotateArm180CCW() {
+        rotateArmCCW();
+    }
+
+    // ===================================================
+    // 그리퍼 (180도 서보) 제어 함수
+    // ===================================================
+
+    void grabGripper() {
+        if (!_armEnabled) return;
+        Serial.println(" -> [동작] 그리퍼 잡기");
         _gripperServo.attach(PIN_GRIPPER, 500, 2400);
-
-        // 초기 자세: 팔 정지, 그리퍼 열림
-        _armServo.write(ARM_STOP);
-        _gripperServo.write(GRIPPER_OPEN);
-        
-        Serial.println("[ServoArmController] 초기화 완료 (Arm: 17, Gripper: 16)");
-    }
-
-    /**
-     * @brief [1단계] 화분을 집기 위해 그리퍼를 열고 팔을 180도 내린 후 대기합니다.
-     */
-    void pickReady() {
-        if (!_armEnabled) {
-            Serial.println("[ServoArm] 픽업 준비 (비활성화)");
-            return;
-        }
-        Serial.println("[ServoArm] 픽업 준비: 그리퍼 열기 -> 팔 내리기");
-        
-        // 1. 그리퍼 열어두기
-        _gripperServo.write(GRIPPER_OPEN);
+        delay(50);
+        _gripperServo.write(GRIPPER_CLOSE); 
         delay(500);
-
-        // 2. 팔 180도 내리기
-        _armServo.write(ARM_FORWARD);
-        delay(ARM_MOVE_TIME);
-        
-        // 3. 팔 정지 및 흔들림 안정화 대기
-        _armServo.write(ARM_STOP);
-        delay(500); 
+        _gripperServo.detach();
     }
 
-    /**
-     * @brief [2단계] 화분을 꽉 잡은 후 팔을 다시 180도 들어 등 위에 적재합니다.
-     * @note pickReady() 이후 로봇이 후진하여 화분과 밀착한 뒤 호출되어야 합니다.
-     */
+    void releaseGripper() {
+        if (!_armEnabled) return;
+        Serial.println(" -> [동작] 그리퍼 놓기");
+        _gripperServo.attach(PIN_GRIPPER, 500, 2400);
+        delay(50);
+        _gripperServo.write(GRIPPER_OPEN); 
+        delay(500);
+        _gripperServo.detach();
+    }
+
+    // ===================================================
+    // 매크로 동작 함수
+    // ===================================================
+
+    void pickReady() {
+        if (!_armEnabled) { Serial.println("[ServoArm] 픽업 준비 (비활성화)"); return; }
+        Serial.println("[ServoArm] 픽업 준비: 그리퍼 열기 -> 팔 내리기");
+        releaseGripper();
+        rotateArmCW();
+    }
+
     void pickExecute() {
-        if (!_armEnabled) {
-            Serial.println("[ServoArm] 픽업 실행 (비활성화)");
-            return;
-        }
+        if (!_armEnabled) { Serial.println("[ServoArm] 픽업 실행 (비활성화)"); return; }
         Serial.println("[ServoArm] 픽업 실행: 그리퍼 닫기 -> 팔 올리기");
-
-        // 1. 그리퍼 닫아서 화분 꽉 잡기
-        _gripperServo.write(GRIPPER_CLOSE);
-        delay(1000); // 확실히 닫힐 때까지 1초 대기
-
-        // 2. 등 위로 팔 들어올리기 (180도)
-        _armServo.write(ARM_BACKWARD);
-        delay(ARM_MOVE_TIME);
-        
-        // 3. 팔 정지
-        _armServo.write(ARM_STOP);
+        grabGripper();
+        delay(500);
+        rotateArmCCW();
         Serial.println("[ServoArm] 픽업 적재 완료!");
     }
 
-    /**
-     * @brief 화분을 내려놓는 동작 (필요 시 호출)
-     */
     void dropPot() {
-        if (!_armEnabled) {
-            Serial.println("[ServoArm] 내려놓기 (비활성화)");
-            return;
-        }
+        if (!_armEnabled) { Serial.println("[ServoArm] 내려놓기 (비활성화)"); return; }
         Serial.println("[ServoArm] 내려놓기 시작");
-        
-        // 1. 적재된 화분을 목적지 바닥으로 내리기 (180도)
-        _armServo.write(ARM_FORWARD);
-        delay(ARM_MOVE_TIME);
-        _armServo.write(ARM_STOP);
+        rotateArmCW();
+        releaseGripper();
         delay(500);
-
-        // 2. 그리퍼 열어 화분 놓기
-        _gripperServo.write(GRIPPER_OPEN);
-        delay(1000);
-
-        // 3. 빈 팔을 다시 등 위로 복귀시키기 (180도)
-        _armServo.write(ARM_BACKWARD);
-        delay(ARM_MOVE_TIME);
-        _armServo.write(ARM_STOP);
-        
+        rotateArmCCW();
         Serial.println("[ServoArm] 내려놓기 완료!");
     }
 };
 
 #endif // SERVO_ARM_CONTROLLER_H
+

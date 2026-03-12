@@ -167,6 +167,23 @@ def send_path():
         return jsonify({"ok": True, "message": f"경로 '{path}' 전송 완료"})
     return jsonify({"ok": False, "error": "연결된 로봇이 없습니다."}), 503
 
+@robot_bp.route('/api/robot/arm', methods=['POST'])
+def arm_control():
+    """암/그리퍼 제어 (시계/반시계 180도, 그리퍼 잡기/놓기)"""
+    data = request.get_json()
+    action = (data.get("action") or "").strip()
+    robot_id = (data.get("robot_id") or "R01").strip()
+
+    VALID_ACTIONS = ("ARM_CW_180", "ARM_CCW_180", "GRIPPER_GRAB", "GRIPPER_RELEASE")
+    if action not in VALID_ACTIONS:
+        return jsonify({"ok": False, "error": f"유효하지 않은 action: {action}"}), 400
+
+    cmd = {"cmd": "TASK", "action": action}
+    if send_to_robot(robot_id, cmd):
+        return jsonify({"ok": True, "message": f"암/그리퍼 명령 '{action}' 전송 완료"})
+    return jsonify({"ok": False, "error": "연결된 로봇이 없습니다."}), 503
+
+
 @robot_bp.route('/api/robot_state')
 def get_robot_state():
     """웹 대시보드(AGV 아이콘 이동)를 위한 현재 로봇 상태 반환"""

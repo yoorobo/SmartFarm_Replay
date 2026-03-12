@@ -19,7 +19,7 @@ const char* SERVER_IP = "192.168.0.76"; // PC IP (서버)
 #include <WiFiUdp.h>
 
 // 장비별 고유 ID (다중 카메라 시 1, 2, 3... 변경)
-#define DEVICE_ID 1
+#define DEVICE_ID 10
 
 WiFiUDP udp;
 

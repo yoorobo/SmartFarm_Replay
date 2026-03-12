@@ -62,6 +62,12 @@ public:
      */
     void initHardware();
 
+    /**
+     * @brief 암/그리퍼 활성화 여부 설정. ENABLE_ARM 플래그로 제어.
+     * @param enabled true=활성, false=비활성 (기본값)
+     */
+    void setArmEnabled(bool enabled);
+
     // ─────────── Wi-Fi 연결 ───────────
     /**
      * @brief Wi-Fi에 연결한다.
