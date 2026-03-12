@@ -8,7 +8,8 @@ import threading
 import struct
 from datetime import datetime
 from database.db_config import get_db_connection
-from core.sensor_controller import latest_data
+from core.node_identifier import identify_node
+from core.sensor_controller import latest_data, process_sensor_and_control
 from network.sfam_protocol import (
     SfamParser, build_packet, MSG_HEARTBEAT_REQ, MSG_HEARTBEAT_ACK,
     MSG_AGV_TELEMETRY, MSG_SENSOR_BATCH, MSG_RFID_EVENT, ID_SERVER, MSG_AGV_TASK_CMD
@@ -43,9 +44,9 @@ def handle_hardware_client(client_socket, addr):
                     if not client_id:
                         client_id = f"0x{src_id:02X}"
                         active_tcp_connections[client_id] = client_socket
-                        # task_dispatcher가 agv_id "R01"로 조회하므로 매핑 추가
-                        agv_db_id = "R01" if src_id == 0x01 else f"R{src_id:02d}"
-                        active_tcp_connections[agv_db_id] = client_socket
+                        
+                        _, node_id, _ = identify_node(src_id)
+                        active_tcp_connections[node_id] = client_socket
                         
                     # 1. 하트비트 요청 (0x01)
                     if msg_type == MSG_HEARTBEAT_REQ:
@@ -128,50 +129,11 @@ def handle_hardware_client(client_socket, addr):
                                 elif s_id == 0x03: light = val * 10.0 # light는 스케일링 복구
                                 idx += 4
                                 
-                            # API가 요구하는 포맷으로 캐싱
-                            node_name = f"S{src_id:02X}" # e.g. 0x11 -> S11
-                            latest_data[node_name] = {
-                                "temp": round(temp, 1),
-                                "hum": round(hum, 1),
-                                "light": int(light),
-                                "last_updated": datetime.now().timestamp(),
-                                "last_seen": datetime.now().strftime('%H:%M:%S')
-                            }
+                            # 노드 정보 식별
+                            p_id, node_id, dyn_ctrl_id = identify_node(src_id)
                             
-                            # DB 로깅
-                            conn = get_db_connection()
-                            try:
-                                with conn.cursor() as cursor:
-                                    now = datetime.now()
-                                    # 해당 노드의 컨트롤러 및 센서 ID 찾기 (없으면 생성)
-                                    # node_name: S11, S12 등
-                                    cursor.execute("SELECT controller_id FROM nursery_controllers WHERE node_id = %s LIMIT 1", (node_name,))
-                                    ctrl_res = cursor.fetchone()
-                                    if not ctrl_res:
-                                        ctrl_id = f"CTRL_{node_name}"
-                                        cursor.execute("INSERT IGNORE INTO nursery_controllers (controller_id, node_id) VALUES (%s, %s)", (ctrl_id, node_name))
-                                    else:
-                                        ctrl_id = ctrl_res['controller_id']
-                                    
-                                    sensor_ids = {}
-                                    for s_type_id in [1, 2, 3]: # Temp=1, Humi=2, Light=3
-                                        cursor.execute("SELECT sensor_id FROM nursery_sensors WHERE controller_id = %s AND sensor_type_id = %s", (ctrl_id, s_type_id))
-                                        s_res = cursor.fetchone()
-                                        if not s_res:
-                                            cursor.execute("INSERT INTO nursery_sensors (controller_id, sensor_type_id, pin_number) VALUES (%s, %s, 0)", (ctrl_id, s_type_id))
-                                            sensor_ids[s_type_id] = cursor.lastrowid
-                                        else:
-                                            sensor_ids[s_type_id] = s_res['sensor_id']
-
-                                    # 로그 삽입
-                                    if sensor_ids.get(1): cursor.execute("INSERT INTO nursery_sensor_logs (sensor_id, value, measured_at) VALUES (%s, %s, %s)", (sensor_ids[1], temp, now))
-                                    if sensor_ids.get(2): cursor.execute("INSERT INTO nursery_sensor_logs (sensor_id, value, measured_at) VALUES (%s, %s, %s)", (sensor_ids[2], hum, now))
-                                    if sensor_ids.get(3): cursor.execute("INSERT INTO nursery_sensor_logs (sensor_id, value, measured_at) VALUES (%s, %s, %s)", (sensor_ids[3], light, now))
-                                conn.commit()
-                            except Exception as e:
-                                print(f"Nursery Sensor DB Error: {e}")
-                            finally:
-                                conn.close()
+                            # 로직 통합: process_sensor_and_control 호출 (DB 저장 및 제어값 계산 포함)
+                            process_sensor_and_control(p_id, node_id, dyn_ctrl_id, temp, hum, light)
                                 
                     # 4. AGV 로봇이 통신으로 보낸 RFID 태그 인식 이벤트 (0x24)
                     elif msg_type == MSG_RFID_EVENT:
