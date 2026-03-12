@@ -9,8 +9,9 @@ app.py
 
 옵션:
     --server-ip   : 서버 IP 주소 (기본: 127.0.0.1)
-    --tcp-port    : 서버 TCP 포트 (기본: 8080)
-    --udp-port    : UDP 수신 포트 (기본: 9000)
+    --udp-port    : 카메라 수신 UDP 포트 (기본: 7070)
+    --tcp-port    : 서버 TCP 포트 (기본: 8000)
+    --host        : 서버 IP (기본: 0.0.0.0)
     --demo        : 데모 모드 (서버 없이 더미 데이터로 실행)
 """
 
@@ -66,9 +67,10 @@ def run_demo(window: DashboardWindow):
 
 def main():
     parser = argparse.ArgumentParser(description="스마트팜 관제 앱")
-    parser.add_argument("--server-ip", default="127.0.0.1", help="서버 IP")
-    parser.add_argument("--tcp-port", type=int, default=8080, help="서버 TCP 포트")
-    parser.add_argument("--udp-port", type=int, default=9000, help="UDP 수신 포트")
+    parser.add_argument("--server-ip", default="127.0.0.1",    # 2. 네트워크 및 포트 설정 옵션
+    parser.add_argument("--udp-port", type=int, default=7070, help="UDP 포트")
+    parser.add_argument("--tcp-port", type=int, default=8000, help="서버 TCP 포트")
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="서버 IP")
     parser.add_argument("--demo", action="store_true", help="데모 모드")
     args = parser.parse_args()
 

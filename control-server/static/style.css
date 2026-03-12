@@ -419,6 +419,36 @@ body {
     }
 }
 
+/* ── AGV 이동 경로 애니메이션 ─────────────────── */
+@keyframes marchingAnts {
+    to { stroke-dashoffset: -30; }
+}
+
+.track-lines .agv-active-path {
+    stroke: #42d392;
+    stroke-width: 4;
+    stroke-dasharray: 12, 8;
+    opacity: 0;
+    filter: drop-shadow(0 0 4px rgba(66, 211, 146, 0.6));
+    transition: opacity 0.4s ease;
+}
+
+.track-lines .agv-active-path.moving {
+    opacity: 1;
+    animation: marchingAnts 0.6s linear infinite;
+}
+
+/* 도착 핑 이펙트 */
+@keyframes nodePing {
+    0%   { box-shadow: 0 0 0 0 rgba(66, 211, 146, 0.7); }
+    70%  { box-shadow: 0 0 0 15px rgba(66, 211, 146, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(66, 211, 146, 0); }
+}
+
+.track-node.arrived {
+    animation: nodePing 1s ease-out 2;
+}
+
 .hidden {
     display: none !important;
 }
@@ -826,6 +856,8 @@ input:checked+.slider:before {
     padding: 15px;
     border-radius: 12px;
     height: 250px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 /* Modal Info Footer */

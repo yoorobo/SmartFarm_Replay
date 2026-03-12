@@ -76,6 +76,32 @@
                             stroke-dasharray="10,10" />
                         <line x1="80%" y1="70%" x2="80%" y2="90%" stroke="#30363d" stroke-width="4"
                             stroke-dasharray="10,10" />
+
+                        <!-- AGV 활성 경로 오버레이 (이동 시 애니메이션) -->
+                        <!-- A line segments -->
+                        <line class="agv-active-path" id="path-a01-a02" x1="10%" y1="50%" x2="40%" y2="50%" />
+                        <line class="agv-active-path" id="path-a02-a03" x1="40%" y1="50%" x2="60%" y2="50%" />
+                        <line class="agv-active-path" id="path-a03-a04" x1="60%" y1="50%" x2="90%" y2="50%" />
+                        <!-- S vertical segments -->
+                        <line class="agv-active-path" id="path-s11-s05" x1="20%" y1="10%" x2="20%" y2="30%" />
+                        <line class="agv-active-path" id="path-s05-a01" x1="20%" y1="30%" x2="20%" y2="50%" />
+                        <line class="agv-active-path" id="path-s12-s06" x1="40%" y1="10%" x2="40%" y2="30%" />
+                        <line class="agv-active-path" id="path-s06-a02" x1="40%" y1="30%" x2="40%" y2="50%" />
+                        <line class="agv-active-path" id="path-s13-s07" x1="60%" y1="10%" x2="60%" y2="30%" />
+                        <line class="agv-active-path" id="path-s07-a03" x1="60%" y1="30%" x2="60%" y2="50%" />
+                        <!-- S horizontal segments -->
+                        <line class="agv-active-path" id="path-s05-s06" x1="20%" y1="30%" x2="40%" y2="30%" />
+                        <line class="agv-active-path" id="path-s06-s07" x1="40%" y1="30%" x2="60%" y2="30%" />
+                        <!-- R vertical segments -->
+                        <line class="agv-active-path" id="path-r14-r08" x1="40%" y1="90%" x2="40%" y2="70%" />
+                        <line class="agv-active-path" id="path-r08-a02" x1="40%" y1="70%" x2="40%" y2="50%" />
+                        <line class="agv-active-path" id="path-r15-r09" x1="60%" y1="90%" x2="60%" y2="70%" />
+                        <line class="agv-active-path" id="path-r09-a03" x1="60%" y1="70%" x2="60%" y2="50%" />
+                        <line class="agv-active-path" id="path-r16-r10" x1="80%" y1="90%" x2="80%" y2="70%" />
+                        <line class="agv-active-path" id="path-r10-a04" x1="80%" y1="70%" x2="80%" y2="50%" />
+                        <!-- R horizontal segments -->
+                        <line class="agv-active-path" id="path-r08-r09" x1="40%" y1="70%" x2="60%" y2="70%" />
+                        <line class="agv-active-path" id="path-r09-r10" x1="60%" y1="70%" x2="80%" y2="70%" />
                     </svg>
 
                     <!-- Inbound / Outbound -->
@@ -176,21 +202,29 @@
                 <div class="modal-cam">
                     <h3>환경 관측 카메라 (육묘장)</h3>
                     <div class="placeholder-cam">
-                        <img src="/api/camera/stream/10" alt="육묘장 카메라"
+                        <img id="nursery-cam-stream" src="/api/camera/stream/10" alt="육묘장 카메라"
                             style="width:100%; height:100%; object-fit:cover; border-radius:8px;"
-                            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                            onerror="this.onerror=null; this.src=''; this.alt='카메라 오프라인';">
                         <span style="display:none;">카메라 대기 중</span>
                     </div>
                 </div>
                 <div class="modal-controls">
-                    <h3>수동 제어 패널</h3>
+                    <h3>환경 제어 (Auto/Manual)</h3>
                     <div class="control-grid">
-                        <div class="control-item">
-                            <label>LED 조명</label>
+                        <div class="control-item mode-toggle" style="grid-column: 1 / -1; margin-bottom: 10px; background: rgba(88, 166, 255, 0.1); padding: 10px; border-radius: 8px;">
+                            <label style="color: #58a6ff; font-weight: bold;">[공통] 자동 제어 모드</label>
                             <label class="switch">
-                                <input type="checkbox" id="ctrl-led" onchange="toggleDevice('led')">
+                                <input type="checkbox" id="ctrl-mode" onchange="toggleDevice('mode')">
                                 <span class="slider round"></span>
                             </label>
+                        </div>
+                        <div class="control-item led-control-item" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: flex-start;">
+                            <label style="margin-bottom: 5px;">LED 밝기 수동 제어 (0~100)</label>
+                            <div style="display: flex; gap: 10px; width: 100%; align-items: center;">
+                                <input type="range" id="ctrl-led-range" min="0" max="100" value="0" style="flex-grow: 1;" oninput="document.getElementById('ctrl-led-num').value=this.value">
+                                <input type="number" id="ctrl-led-num" min="0" max="100" value="0" style="width: 60px; background: #30363d; color: white; border: 1px solid #484f58; border-radius: 4px; padding: 4px; text-align: center;" oninput="document.getElementById('ctrl-led-range').value=this.value">
+                                <button id="btn-set-led" onclick="setLedValue()" style="background: #238636; color: white; border: none; border-radius: 4px; padding: 4px 12px; font-weight: bold; cursor: pointer;">적용</button>
+                            </div>
                         </div>
                         <div class="control-item">
                             <label>환기 팬</label>
@@ -200,9 +234,16 @@
                             </label>
                         </div>
                         <div class="control-item">
-                            <label>양액 밸브</label>
+                            <label>워터 펌프 (양액)</label>
                             <label class="switch">
-                                <input type="checkbox" id="ctrl-val" onchange="toggleDevice('val')">
+                                <input type="checkbox" id="ctrl-pump" onchange="toggleDevice('pump')">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div class="control-item">
+                            <label>온풍기 (히터)</label>
+                            <label class="switch">
+                                <input type="checkbox" id="ctrl-heater" onchange="toggleDevice('heater')">
                                 <span class="slider round"></span>
                             </label>
                         </div>

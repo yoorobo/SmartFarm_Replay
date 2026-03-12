@@ -42,7 +42,7 @@ def get_latest_sensors():
     for node_id, data in latest_data.items():
         response_data[node_id.lower()] = {
             "temperature": data.get("temp", 0),
-            "humidity": data.get("hum", 0),
+            "humidity": data.get("humi", 0),
             "light": data.get("light", 0),
             "updated_at": data.get("last_updated", 0)
         }
@@ -53,6 +53,7 @@ def get_latest_sensors():
 def control_sensor():
     """웹 GUI의 수동 제어 명령을 받아 ESP32에 반영 및 즉시 로깅"""
     from database.db_config import get_db_connection
+    from network.tcp_robot_server import send_actuator_command
     from datetime import datetime
     
     data = request.get_json()
@@ -63,11 +64,52 @@ def control_sensor():
     if not node_id or not device or not state:
         return jsonify({"ok": False, "error": "Invalid params"}), 400
         
+    # --- 펌웨어(ESP32)로 명령어 바이너리 전송 ---
+    # device = 'mode', 'pump'(val), 'fan', 'heater', 'led'
+    # 0=MODE, 1=PUMP, 2=FAN, 3=HEATER, 4=LED
+    device_lower = device.lower()
+    actuator_id_map = {
+        'mode': 0,
+        'pump': 1,
+        'val': 1, # 호환성 유지
+        'fan': 2,
+        'heater': 3,
+        'led': 4
+    }
+    
+    act_id = actuator_id_map.get(device_lower)
+    if act_id is None:
+        return jsonify({"ok": False, "error": f"Unknown device: {device}"}), 400
+        
+    value = 0
+    if isinstance(state, str):
+        if state.upper() == 'ON':
+            value = 1
+        elif state.upper() == 'OFF':
+            value = 0
+        elif state.isdigit():
+            value = max(0, min(100, int(state)))
+    elif isinstance(state, (int, float)):
+        value = max(0, min(100, int(state)))
+
+    # LED 0~100 처리나 기타 필요시 value 확장 가능
+    print(f"🎮 [API 수동제어] node={node_id}, device={device}(act_id={act_id}), state={state}, value={value}")
+    
+    # TCP 소켓으로 직접 전송!
+    success = send_actuator_command(node_id, act_id, value)
+    if not success:
+        return jsonify({"ok": False, "error": f"Node {node_id} is offline or command failed"}), 503
+
+    # 내부 상태 저장
     if node_id not in manual_overrides:
         manual_overrides[node_id] = {}
         
-    cmd = f"{device.upper()}_{state.upper()}"
-    manual_overrides[node_id][device.lower()] = cmd
+    if isinstance(state, str) and (state.upper() == 'ON' or state.upper() == 'OFF'):
+        cmd = f"{device.upper()}_{state.upper()}"
+    else:
+        cmd = f"{device.upper()}_{value}"
+    
+    manual_overrides[node_id][device_lower] = cmd
     
     # --- 즉시 로깅 추가 ---
     conn = get_db_connection()

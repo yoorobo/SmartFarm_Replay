@@ -22,7 +22,7 @@ class TcpServer:
     멀티 클라이언트 TCP 소켓 서버.
 
     사용 예:
-        server = TcpServer(host="0.0.0.0", port=8080, message_router=router)
+        server = TcpServer(host="0.0.0.0", port=8000, message_router=router)
         server.start()  # 백그라운드 스레드에서 시작
         ...
         server.stop()

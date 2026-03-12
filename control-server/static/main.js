@@ -55,6 +55,81 @@ function pollSensorData() {
 // ==========================================
 // 2. Data Polling: AGV Robot State
 // ==========================================
+
+// 노드 간 인접 관계 (양방향)
+const trackAdjacency = {
+    'A01': ['A02', 'S05'],
+    'A02': ['A01', 'A03', 'S06', 'R08'],
+    'A03': ['A02', 'A04', 'S07', 'R09'],
+    'A04': ['A03', 'R10'],
+    'S05': ['A01', 'S06', 'S11'],
+    'S06': ['S05', 'S07', 'A02', 'S12'],
+    'S07': ['S06', 'A03', 'S13'],
+    'S11': ['S05'],
+    'S12': ['S06'],
+    'S13': ['S07'],
+    'R08': ['A02', 'R09', 'R14'],
+    'R09': ['R08', 'R10', 'A03', 'R15'],
+    'R10': ['R09', 'A04', 'R16'],
+    'R14': ['R08'],
+    'R15': ['R09'],
+    'R16': ['R10']
+};
+
+// 두 인접 노드 사이의 SVG 경로 ID 찾기
+function getPathId(nodeA, nodeB) {
+    const a = nodeA.toUpperCase();
+    const b = nodeB.toUpperCase();
+    // 경로 ID는 양방향: path-a-b 또는 path-b-a 중 존재하는 것 사용
+    let el = document.getElementById(`path-${a.toLowerCase()}-${b.toLowerCase()}`);
+    if (!el) el = document.getElementById(`path-${b.toLowerCase()}-${a.toLowerCase()}`);
+    return el;
+}
+
+// BFS로 두 노드 사이 최단 경로 계산
+function findPath(from, to) {
+    from = from.toUpperCase();
+    to = to.toUpperCase();
+    if (from === to) return [from];
+    
+    const visited = new Set([from]);
+    const queue = [[from]];
+    
+    while (queue.length > 0) {
+        const path = queue.shift();
+        const current = path[path.length - 1];
+        const neighbors = trackAdjacency[current] || [];
+        
+        for (const next of neighbors) {
+            if (next === to) return [...path, next];
+            if (!visited.has(next)) {
+                visited.add(next);
+                queue.push([...path, next]);
+            }
+        }
+    }
+    return null; // 경로 없음
+}
+
+// 모든 활성 경로 애니메이션 해제
+function clearAllPathAnimations() {
+    document.querySelectorAll('.agv-active-path').forEach(el => el.classList.remove('moving'));
+}
+
+// 경로의 각 구간에 이동 애니메이션 활성화
+function showPathAnimation(pathNodes) {
+    clearAllPathAnimations();
+    if (!pathNodes || pathNodes.length < 2) return;
+    
+    for (let i = 0; i < pathNodes.length - 1; i++) {
+        const pathEl = getPathId(pathNodes[i], pathNodes[i + 1]);
+        if (pathEl) pathEl.classList.add('moving');
+    }
+}
+
+// 이전 위치 추적용
+let previousRobotNode = null;
+
 function pollRobotState() {
     fetch('/api/robot_state')
         .then(res => res.json())
@@ -67,24 +142,50 @@ function pollRobotState() {
 
 function updateRobotPosition(state) {
     const agvElem = document.getElementById("agv-robot");
-    const nodeName = state.node_name || state.node || null; // handles both legacy and new names
+    const nodeName = state.node_name || state.node || null;
 
     if (!nodeName || nodeName.includes("-")) return;
 
     // Only update if node changed to trigger CSS transition smoothly
     if (currentRobotNode !== nodeName) {
+        // ── 경로 애니메이션 처리 ──
+        if (previousRobotNode && previousRobotNode !== nodeName) {
+            // 이전 노드에서 현재 노드까지의 경로 계산 & 애니메이션 표시
+            const path = findPath(previousRobotNode, nodeName);
+            if (path && path.length >= 2) {
+                showPathAnimation(path);
+                // 1.5초 후 애니메이션 끄고 도착 이펙트 표시
+                setTimeout(() => {
+                    clearAllPathAnimations();
+                    const arrivedNode = document.getElementById(`node-${nodeName.toLowerCase()}`);
+                    if (arrivedNode) {
+                        arrivedNode.classList.remove('arrived');
+                        void arrivedNode.offsetWidth; // reflow for re-trigger
+                        arrivedNode.classList.add('arrived');
+                        setTimeout(() => arrivedNode.classList.remove('arrived'), 2500);
+                    }
+                }, 1500);
+            }
+        } else {
+            // 첫 노드 표시 시 애니메이션 없음
+            clearAllPathAnimations();
+        }
+
+        previousRobotNode = currentRobotNode || nodeName;
         currentRobotNode = nodeName;
         agvElem.classList.remove('hidden');
 
         // Find track node element location
         const targetNode = document.getElementById(`node-${nodeName.toLowerCase()}`);
         if (targetNode) {
-            // Apply position from CSS styling mapped to %
             agvElem.style.left = targetNode.style.left || getComputedStyle(targetNode).left;
             agvElem.style.top = targetNode.style.top || getComputedStyle(targetNode).top;
 
             // Highlight active node
-            document.querySelectorAll('.track-node').forEach(n => n.style.borderColor = "");
+            document.querySelectorAll('.track-node').forEach(n => {
+                n.style.borderColor = "";
+                n.style.boxShadow = "";
+            });
             targetNode.style.borderColor = "#42d392";
             targetNode.style.boxShadow = "0 0 15px rgba(66, 211, 146, 0.6)";
         }
@@ -214,6 +315,18 @@ function openNodeModal(nodeId) {
     document.getElementById('modal-title').innerText = `상세 관제: ${nodeId.toUpperCase()}`;
     document.getElementById('node-modal').classList.remove('hidden');
 
+    // 카메라 스트림 새로고침 (이전에 끊겼거나 브라우저 캐시로 인해 멈춘 경우 대비)
+    const nurseryCam = document.getElementById('nursery-cam-stream');
+    if (nurseryCam) {
+        nurseryCam.src = `/api/camera/stream/10?t=${new Date().getTime()}`;
+        nurseryCam.style.display = 'block'; // 혹시 에러로 숨겨졌다면 다시 표시
+
+        // 에러 메시지가 있다면 다시 숨김
+        if (nurseryCam.nextElementSibling && nurseryCam.nextElementSibling.tagName === 'SPAN') {
+            nurseryCam.nextElementSibling.style.display = 'none';
+        }
+    }
+
     // Reset fields
     document.getElementById('node-crop-name').innerText = "조회 중...";
     document.getElementById('node-incoming-date').innerText = "-";
@@ -247,9 +360,54 @@ function openNodeModal(nodeId) {
         });
 
     // Set dummy state for controls (This would ideally come from the API too)
-    document.getElementById('ctrl-led').checked = Math.random() > 0.5;
+    document.getElementById('ctrl-mode').checked = true;  // 기본 자동모드로 표시
+    
+    const ledRange = document.getElementById('ctrl-led-range');
+    const ledNum = document.getElementById('ctrl-led-num');
+    if (ledRange && ledNum) {
+        ledRange.value = 0;
+        ledNum.value = 0;
+    }
+
     document.getElementById('ctrl-fan').checked = false;
-    document.getElementById('ctrl-val').checked = false;
+    document.getElementById('ctrl-pump').checked = false;
+    document.getElementById('ctrl-heater').checked = false;
+
+    // 모드에 따라 스위치 활성/비활성화
+    updateControlStates();
+}
+
+// 자동 제어 모드 값에 따라 수동 스위치 상태 변경
+function updateControlStates() {
+    const isAuto = document.getElementById('ctrl-mode').checked;
+    const devices = ['fan', 'pump', 'heater'];
+
+    devices.forEach(dev => {
+        const checkbox = document.getElementById(`ctrl-${dev}`);
+        if (checkbox) {
+            checkbox.disabled = isAuto;
+            const container = checkbox.closest('.control-item');
+            if (container) {
+                container.style.opacity = isAuto ? '0.5' : '1';
+                container.style.pointerEvents = isAuto ? 'none' : 'auto';
+            }
+        }
+    });
+
+    // LED 밝기 컨트롤 개별 처리
+    const ledRange = document.getElementById('ctrl-led-range');
+    const ledNum = document.getElementById('ctrl-led-num');
+    const btnSetLed = document.getElementById('btn-set-led');
+    if (ledRange && ledNum && btnSetLed) {
+        ledRange.disabled = isAuto;
+        ledNum.disabled = isAuto;
+        btnSetLed.disabled = isAuto;
+        const ledContainer = ledRange.closest('.control-item');
+        if (ledContainer) {
+            ledContainer.style.opacity = isAuto ? '0.5' : '1';
+            ledContainer.style.pointerEvents = isAuto ? 'none' : 'auto';
+        }
+    }
 }
 
 function closeNodeModal() {
@@ -303,6 +461,8 @@ function updateNodeChart(history) {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
+            devicePixelRatio: 2,
             interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: {
@@ -339,20 +499,77 @@ function toggleDevice(device) {
     const state = document.getElementById(`ctrl-${device}`).checked ? "ON" : "OFF";
     const currNode = document.getElementById('modal-title').innerText.replace('상세 관제: ', '').toLowerCase().trim();
 
+    // 모드 변경 시 서버 응답 기다리지 않고 즉시 UI 반영
+    if (device === 'mode') {
+        updateControlStates();
+    }
+
     fetch('/api/sensor/control', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ node_id: currNode, device: device, state: state })
-    }).then(res => res.json())
-        .then(data => {
-            if (data.ok) {
-                addLocalLog(`[CTRL] 수동 제어: ${currNode.toUpperCase()} ${device.toUpperCase()} 밸브 ${state}`, 'cmd-out');
-                // 육묘장 로그 탭이 열려있다면 즉시 갱신
-                if (!document.getElementById('logs-modal').classList.contains('hidden')) {
-                    fetchNurseryLogs();
-                }
+    }).then(res => {
+        if (!res.ok && res.status !== 503) throw new Error("서버 에러");
+        return res.json();
+    }).then(data => {
+        if (data.ok) {
+            let logMsg = `[CTRL] 수동 제어: ${currNode.toUpperCase()} ${device.toUpperCase()} ➡️ ${state}`;
+            if (device === 'mode') {
+                logMsg = `[CTRL] 제어 모드: ${currNode.toUpperCase()} ➡️ ${state === 'ON' ? 'AUTO' : 'MANUAL'}`;
             }
-        });
+            addLocalLog(logMsg, 'cmd-out');
+            
+            if (device === 'mode') {
+                updateControlStates(); // 모드가 변경되었으므로 스위치 업데이트
+            }
+
+            // 육묘장 로그 탭이 열려있다면 즉시 갱신
+            if (!document.getElementById('logs-modal').classList.contains('hidden')) {
+                fetchNurseryLogs();
+            }
+        } else {
+            // 통신 실패(노드 오프라인 등) 시에도 프론트엔드 UI 테스트를 위해 
+            // 스위치 상태 업데이트 연동은 허용
+            addLocalLog(`[ERROR] 제어 전송 실패: ${data.error || '오프라인 상태'}`, 'cmd-err');
+            if (device === 'mode') {
+                updateControlStates();
+            }
+        }
+    }).catch(err => {
+        addLocalLog(`[ERROR] 서버 연결 오류: ${err.message}`, 'cmd-err');
+        if (device === 'mode') {
+            updateControlStates();
+        }
+    });
+}
+
+function setLedValue() {
+    let value = document.getElementById('ctrl-led-num').value;
+    value = Math.max(0, Math.min(100, parseInt(value) || 0));
+    document.getElementById('ctrl-led-num').value = value;
+    document.getElementById('ctrl-led-range').value = value;
+
+    const currNode = document.getElementById('modal-title').innerText.replace('상세 관제: ', '').toLowerCase().trim();
+
+    fetch('/api/sensor/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ node_id: currNode, device: 'led', state: value.toString() })
+    }).then(res => {
+        if (!res.ok && res.status !== 503) throw new Error("서버 에러");
+        return res.json();
+    }).then(data => {
+        if (data.ok) {
+            addLocalLog(`[CTRL] 수동 제어: ${currNode.toUpperCase()} LED ➡️ 밝기 ${value}%`, 'cmd-out');
+            if (!document.getElementById('logs-modal').classList.contains('hidden')) {
+                fetchNurseryLogs();
+            }
+        } else {
+            addLocalLog(`[ERROR] LED 제어 전송 실패: ${data.error || '오프라인 상태'}`, 'cmd-err');
+        }
+    }).catch(err => {
+        addLocalLog(`[ERROR] 서버 연결 오류: ${err.message}`, 'cmd-err');
+    });
 }
 
 // Full Logs Modal
@@ -425,7 +642,7 @@ function fetchInOutLogs() {
                     const time = log.time ? log.time.substring(5, 19).replace('T', ' ') : "-";
                     const statusVal = log.task_status === 2 ? "완료" : "진행중";
                     const combinedStatus = `${log.type}${statusVal}`; // 예: 입고완료, 출고진행중
-                    
+
                     const statusClass = log.task_status === 2 ? 'sys-msg' : 'cmd-out';
 
                     tbody.innerHTML += `

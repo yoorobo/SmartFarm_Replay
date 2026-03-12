@@ -16,9 +16,39 @@ from network.sfam_protocol import (
 )
 
 # TCP 연결된 클라이언트 소켓 관리
-active_tcp_connections = {}
+active_tcp_connections = {}  # { '0x01': socket, 's11': socket, ... }
 last_logged_states = {}
 latest_robot_state = {}
+
+def send_actuator_command(node_id: str, actuator_id: int, value: int) -> bool:
+    """
+    특정 노드(예: 's11')에 연결된 소켓을 찾아 MSG_ACTUATOR_CMD 파라미터를 바이너리로 전송.
+    actuator_id: 0=MODE, 1=PUMP, 2=FAN, 3=HEATER, 4=LED
+    value: 0=OFF, 1=ON (또는 0~100 밝기)
+    """
+    node_key = node_id.lower()
+    if node_key not in active_tcp_connections:
+        print(f"⚠️ [TCP Server] 노드 {node_key}가 현재 오프라인입니다. 제어 명령 전송 실패.")
+        return False
+        
+    client_socket = active_tcp_connections[node_key]
+    try:
+        # MSG_ACTUATOR_CMD(0x21) 구조: PayloadActuatorCmd 4바이트
+        # [0] actuator_id, [1] state_value, [2] trigger_id, [3] duration_sec
+        # trigger_id: 1=AUTO, 2=MANUAL, 3=SCHEDULE
+        # duration_sec: 0=무기한
+        payload = bytes([actuator_id, value, 2, 0])  # trigger=MANUAL(2), duration=무기한(0)
+        pkt = build_packet(0x21, ID_SERVER, 0xFF, 0, payload)
+        client_socket.sendall(pkt)
+        if actuator_id == 4:  # LED
+            print(f"💡 [제어 명령 전송] {node_key.upper()} LED 밝기 → {value}% 전송 성공! (payload={list(payload)})")
+        else:
+            print(f"👉 [제어 명령 전송] {node_key.upper()} ACTUATOR({actuator_id}) → {'ON' if value else 'OFF'} 전송 성공!")
+        return True
+    except Exception as e:
+        print(f"❌ [TCP Server] 노드 {node_key} 명령 전송 오류: {e}")
+        # 오류 시 연결 제거 처리도 고려 가능
+        return False
 
 def handle_hardware_client(client_socket, addr):
     """하드웨어 TCP 클라이언트 (바이너리 프로토콜) 수신 스레드"""
@@ -47,9 +77,13 @@ def handle_hardware_client(client_socket, addr):
                         active_tcp_connections[client_id] = client_socket
                         
                         _, node_id, _ = identify_node(src_id)
-                        active_tcp_connections[node_id] = client_socket
-                        display_name = f"[{node_id}]"
-                        
+                        if node_id:
+                            node_key = node_id.lower()
+                            active_tcp_connections[node_key] = client_socket
+                            display_name = f"[{node_key.upper()}]"
+                        else:
+                            display_name = f"[{client_id}]"
+                            
                     # 1. 하트비트 요청 (0x01)
                     if msg_type == MSG_HEARTBEAT_REQ:
                         ack_payload = bytes([1, 0]) # ONLINE

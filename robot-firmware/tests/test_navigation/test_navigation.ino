@@ -29,8 +29,9 @@
 // ============================================================
 const char* WIFI_SSID     = "KT_GiGA_B5E1";
 const char* WIFI_PASSWORD = "ghdbze8502";
-const char* SERVER_IP     = "172.30.1.100";
-const uint16_t SERVER_PORT = 8080;
+// [SERVER CONNECTION]
+const char* SERVER_IP = "192.168.0.76";   // 파이썬 TCP 서버 IP
+const uint16_t SERVER_PORT = 8000;
 const char* ROBOT_ID      = "R01";
 
 // ============================================================
