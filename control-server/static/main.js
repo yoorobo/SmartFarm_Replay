@@ -386,10 +386,10 @@ function openFullLogsModal() {
 function fetchAgvLogs() {
     const tbody = document.getElementById('full-logs-body');
     tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">데이터 불러오는 중...</td></tr>`;
-    fetch('/api/tasks?limit=20')
+    fetch(`/api/tasks?limit=20&t=${new Date().getTime()}`)
         .then(res => res.json())
         .then(data => {
-            if (data.ok && data.tasks) {
+            if (data.ok && data.tasks && data.tasks.length > 0) {
                 tbody.innerHTML = "";
                 data.tasks.forEach(task => {
                     const time = task.created_at ? task.created_at.substring(5, 19).replace('T', ' ') : "-";
@@ -419,10 +419,10 @@ function fetchAgvLogs() {
 function fetchInOutLogs() {
     const tbody = document.getElementById('inout-logs-body');
     tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">데이터 불러오는 중...</td></tr>`;
-    fetch('/api/logs/inout?limit=20')
+    fetch(`/api/logs/inout?limit=20&t=${new Date().getTime()}`)
         .then(res => res.json())
         .then(data => {
-            if (data.ok && data.logs) {
+            if (data.ok && data.logs && data.logs.length > 0) {
                 tbody.innerHTML = "";
                 data.logs.forEach(log => {
                     const time = log.time ? log.time.substring(5, 19).replace('T', ' ') : "-";
@@ -448,10 +448,10 @@ function fetchInOutLogs() {
 function fetchNurseryLogs() {
     const tbody = document.getElementById('nursery-logs-body');
     tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">데이터 불러오는 중...</td></tr>`;
-    fetch('/api/logs/nursery?limit=20')
+    fetch(`/api/logs/nursery?limit=20&t=${new Date().getTime()}`)
         .then(res => res.json())
         .then(data => {
-            if (data.ok && data.logs) {
+            if (data.ok && data.logs && data.logs.length > 0) {
                 tbody.innerHTML = "";
                 data.logs.forEach(log => {
                     const time = log.time ? log.time.substring(5, 19).replace('T', ' ') : "-";

@@ -17,7 +17,7 @@
 // ─────────── Wi-Fi / TCP 설정 ───────────
 const char* WIFI_SSID     = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
-const char* SERVER_IP     = "192.168.0.100";
+const char* SERVER_IP     = "192.168.0.132";
 const uint16_t SERVER_PORT = 8000;
 
 WiFiClient _tcpClient;

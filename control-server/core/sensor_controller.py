@@ -141,3 +141,81 @@ def process_sensor_and_control(p_id, node_id, dyn_ctrl_id, curr_temp, curr_humi,
     finally:
         if conn:
             conn.close()
+
+
+def load_latest_sensor_data_from_db():
+    """서버 기동 시 DB의 최신 센서/구동기 상태를 메모리 캐시(latest_data)로 로드합니다."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as c:
+            # 모든 육묘장 노드 목록 가져오기
+            c.execute("SELECT node_id FROM nursery_controllers")
+            controllers = c.fetchall()
+            
+            for ctrl in controllers:
+                node_id = ctrl['node_id'].upper()
+                c_id = ctrl['node_id']
+                
+                # 센서 최신값 (Temp=1, Humi=2, Light=3)
+                c.execute("""
+                    SELECT 
+                        s.sensor_type_id, 
+                        sl.value, 
+                        sl.measured_at 
+                    FROM nursery_sensors s
+                    JOIN nursery_sensor_logs sl ON s.sensor_id = sl.sensor_id
+                    JOIN nursery_controllers nc ON s.controller_id = nc.controller_id
+                    WHERE nc.node_id = %s
+                    ORDER BY sl.measured_at DESC LIMIT 3
+                """, (c_id,))
+                
+                temp = hum = light = 0
+                last_time = None
+                for row in c.fetchall():
+                    if row['sensor_type_id'] == 1 and temp == 0: temp = row['value']
+                    elif row['sensor_type_id'] == 2 and hum == 0: hum = row['value']
+                    elif row['sensor_type_id'] == 3 and light == 0: light = row['value']
+                    
+                    if not last_time or row['measured_at'] > last_time:
+                        last_time = row['measured_at']
+                
+                # 구동기 최신값 (VAL=1, FAN=2, LED=3)
+                c.execute("""
+                    SELECT 
+                        a.actuator_type_id, 
+                        al.state_value
+                    FROM nursery_actuators a
+                    JOIN nursery_actuator_logs al ON a.actuator_id = al.actuator_id
+                    JOIN nursery_controllers nc ON a.controller_id = nc.controller_id
+                    WHERE nc.node_id = %s
+                    ORDER BY al.logged_at DESC LIMIT 3
+                """, (c_id,))
+                
+                val_state, fan_state, led_state = "VAL_OFF", "FAN_OFF", "LED_OFF"
+                act_seen = set()
+                for row in c.fetchall():
+                    a_type = row['actuator_type_id']
+                    if a_type not in act_seen:
+                        act_seen.add(a_type)
+                        state_str = row['state_value']
+                        if a_type == 1: val_state = f"VAL_{state_str}"
+                        elif a_type == 2: fan_state = f"FAN_{state_str}"
+                        elif a_type == 3: led_state = f"LED_{state_str}"
+                
+                # 캐시 적재
+                if temp or hum or light:
+                    latest_data[node_id] = {
+                        "temp": round(temp, 1) if temp else 0,
+                        "humi": round(hum, 1) if hum else 0,
+                        "light": int(light) if light else 0,
+                        "led": led_state, 
+                        "val": val_state, 
+                        "fan": fan_state,
+                        "last_seen": last_time.strftime('%H:%M:%S') if last_time else datetime.now().strftime('%H:%M:%S')
+                    }
+        print(f"🔄 [DB Init] 육묘장 최신 센서 상태 개수: {len(latest_data)}개 로드 완료")
+    except Exception as e:
+        print(f"⚠️ [DB Init] 캐시 로드 중 에러: {e}")
+    finally:
+        conn.close()
+

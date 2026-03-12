@@ -13,9 +13,15 @@
  */
 
 // Wi-Fi / 서버 설정 (수동 수정)
+<<<<<<< HEAD
 #define WIFI_SSID     "addinedu_201class_4-2.4G"
 #define WIFI_PASSWORD "201class4!"
 #define SERVER_IP     "192.168.0.17"   // control-server IP (로컬: 127.0.0.1)
+=======
+#define WIFI_SSID     "U+Net2890"
+#define WIFI_PASSWORD "5000008772"
+#define SERVER_IP     "192.168.0.132"   // control-server IP (로컬: 127.0.0.1)
+>>>>>>> 83ccd48bad5a2318bd7ecd40d882c72283379dab
 #define SERVER_TCP_PORT 8000           // control-server AGV TCP 포트
 #define SERVER_UDP_PORT 7070
 
