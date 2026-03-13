@@ -470,14 +470,22 @@ void LineFollower::waitForLineAfterUturn() {
     // 1. 출발선 지나가기 (눈 감기)
     // 이미 delay(250)로 처리됨
 
-    // 2. 가짜 라인 통과 (첫 번째 라인 감지 후 통과)
-    while (true) {
-        _motor.readSensors(s1, s2, s3, s4, s5);
-        if (s3 == 1 || s4 == 1) break;
-    }
-    while (true) {
-        _motor.readSensors(s1, s2, s3, s4, s5);
-        if (s1 == 0 && s2 == 0 && s3 == 0 && s4 == 0 && s5 == 0) break;
+    // 2. 가짜 라인 3번 통과하기
+    for (int i = 0; i < 3; i++) {
+        // 선 밟을 때까지 대기
+        while (true) {
+            _motor.readSensors(s1, s2, s3, s4, s5);
+            if (s3 == 1 || s4 == 1 || s2 == 1) break;
+            delay(5);
+        }
+        // 선 벗어날 때까지 대기 (마지막 3번째는 바로 안착할 수도 있으니 1번만)
+        if (i < 2) {
+            while (true) {
+                _motor.readSensors(s1, s2, s3, s4, s5);
+                if (s1 == 0 && s2 == 0 && s3 == 0 && s4 == 0 && s5 == 0) break;
+                delay(5);
+            }
+        }
     }
 
     // 3. 진짜 라인 (180도 후) 안착
@@ -486,6 +494,7 @@ void LineFollower::waitForLineAfterUturn() {
         if (s3 == 1 && (s2 == 1 || s4 == 1)) {
             break;
         }
+        delay(5);
     }
 }
 

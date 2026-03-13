@@ -38,15 +38,15 @@
 // ============================================================
 
 // ── WiFi AP ───────────────────────────────────────────────────
-// #define WIFI_SSID  "addinedu_201class_4-2.4G"
-// #define WIFI_PASS  "201class4!"
+#define WIFI_SSID  "addinedu_201class_4-2.4G"
+#define WIFI_PASS  "201class4!"
 
-#define WIFI_SSID  "zaksim4_2.4G"
-#define WIFI_PASS  "zaksim123@"
+// #define WIFI_SSID  "zaksim4_2.4G"
+// #define WIFI_PASS  "zaksim123@"
 
 // ── Host PC 고정 IP (TCP 서버) ────────────────────────────────
 // sfam_test.py 의 HOST_PC_IP 와 반드시 동일해야 함
-static const IPAddress HOST_PC_IP(192, 168, 0, 135);
+static const IPAddress HOST_PC_IP(192, 168, 0, 29);
 #define HOST_PC_PORT  8000
 
 // ============================================================

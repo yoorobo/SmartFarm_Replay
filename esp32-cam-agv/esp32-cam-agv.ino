@@ -7,9 +7,9 @@
  */
 
 // Wi-Fi / 서버 설정 (수동 수정)
-#define WIFI_SSID "ZAKSIM4_2.4G"
-#define WIFI_PASSWORD "zaksim123@"
-#define SERVER_IP "192.168.8.52"
+#define WIFI_SSID "addinedu_201class_4-2.4G"
+#define WIFI_PASSWORD "201class4!"
+#define SERVER_IP "192.168.0.29"
 
 
 #define SERVER_TCP_PORT 8080

@@ -24,14 +24,16 @@
 #include "MotorController.h"
 #include "LineFollower.h"
 
-// ============================================================
-//  설정값 (실제 환경에 맞게 수정!)
-// ============================================================
-const char* WIFI_SSID     = "KT_GiGA_B5E1";
-const char* WIFI_PASSWORD = "ghdbze8502";
-// [SERVER CONNECTION]
-const char* SERVER_IP = "192.168.0.76";   // 파이썬 TCP 서버 IP
-const uint16_t SERVER_PORT = 8000;
+// ==========================================
+// 1. Wi-Fi 및 네트워크 설정
+// ==========================================
+const char* WIFI_SSID     = "addinedu_201class_4-2.4G";
+const char* WIFI_PASSWORD = "201class4!";
+
+const char* SERVER_IP = "192.168.0.29";   // 파이썬 TCP 서버 IP
+const int   SERVER_PORT = 8000;           // 파이썬 서버 포트
+
+WiFiClient client;
 const char* ROBOT_ID      = "R01";
 
 // ============================================================

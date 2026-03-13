@@ -10,7 +10,7 @@
 #define WIFI_SSID "addinedu_201class_4-2.4G"
 #define WIFI_PASSWORD "201class4!"
 // 서버 정보 (TCP/UDP 동일 서버 가정)
-const char* SERVER_IP = "192.168.0.76"; // PC IP (서버)
+const char* SERVER_IP = "192.168.0.29"; // PC IP (서버)
 #define SERVER_TCP_PORT 8000
 #define SERVER_UDP_PORT 7070
 

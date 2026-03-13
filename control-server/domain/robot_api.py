@@ -174,7 +174,7 @@ def arm_control():
     action = (data.get("action") or "").strip()
     robot_id = (data.get("robot_id") or "R01").strip()
 
-    VALID_ACTIONS = ("ARM_CW_180", "ARM_CCW_180", "GRIPPER_GRAB", "GRIPPER_RELEASE", "INBOUND_PICKUP")
+    VALID_ACTIONS = ("ARM_CW_180", "ARM_CCW_180", "GRIPPER_GRAB", "GRIPPER_RELEASE", "INBOUND_PICKUP", "U_TURN_TEST")
     if action not in VALID_ACTIONS:
         return jsonify({"ok": False, "error": f"유효하지 않은 action: {action}"}), 400
 

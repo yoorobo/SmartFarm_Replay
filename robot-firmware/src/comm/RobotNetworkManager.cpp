@@ -327,7 +327,7 @@ void RobotNetworkManager::handleIncoming() {
     while (_tcpClient.available()) {
         uint8_t b = _tcpClient.read();
 
-        if (b == SFAM_SOF) {
+        if (_rxSfamCount == 0 && b == SFAM_SOF) {
             _rxSfamBuf[0] = b;
             _rxSfamCount = 1;
             _rxSfamPayLen = 0;
@@ -342,6 +342,8 @@ void RobotNetworkManager::handleIncoming() {
                 uint16_t rxCrc = ((uint16_t)_rxSfamBuf[6 + _rxSfamPayLen] << 8) | _rxSfamBuf[6 + _rxSfamPayLen + 1];
                 if (calcCrc == rxCrc) {
                     processSfamPacket(_rxSfamBuf, _rxSfamPayLen);
+                } else {
+                    Serial.printf("[RobotNetworkManager] SFAM CRC 오류! (수신:%04X 계산:%04X)\n", rxCrc, calcCrc);
                 }
                 _rxSfamCount = 0;
             }
@@ -659,6 +661,18 @@ void RobotNetworkManager::handleTask(JsonDocument& doc) {
         Serial.printf("[RobotNetworkManager] 입고 경로: %s (도착 후 자동 픽업 예정)\n", pathBuf);
         sendResponse("SUCCESS", "입고 명령 수락 - A01로 이동 중");
     }
+    else if (strcmp(action, "U_TURN_TEST") == 0) {
+        // 단독 U턴 테스트 (직진하다가 가로선 만나면 U턴)
+        Serial.println("[RobotNetworkManager] 🔄 직진 후 U턴 테스트 명령 수신");
+        
+        // 경로 명령 '1U': 1번 노드(다음 교차로)까지 직진 후(1) 거기서 U턴(U)
+        // 그리고 다음 위치를 방금 지난 교차로로 임시 설정하기 위해 배열에 아무 번호나 하나 줌
+        int nodeSeq[2] = { _lineFollower.getCurrentNodeIndex(), _lineFollower.getCurrentNodeIndex() };
+        _lineFollower.setPath("1U", nodeSeq, 2);
+        _lineFollower.start();
+
+        sendResponse("SUCCESS", "직진 후 U턴 테스트 시작");
+    }
     else {
         sendResponse("FAIL", "알 수 없는 작업 명령");
     }
@@ -689,19 +703,28 @@ void RobotNetworkManager::executeInboundPickup() {
     delay(350);
     // U턴 후 라인 안착 대기
     int s1, s2, s3, s4, s5;
-    // 가짜 라인 통과
-    while (true) {
-        _motorController.readSensors(s1, s2, s3, s4, s5);
-        if (s3 == 1 || s4 == 1) break;
-    }
-    while (true) {
-        _motorController.readSensors(s1, s2, s3, s4, s5);
-        if (s1 == 0 && s2 == 0 && s3 == 0 && s4 == 0 && s5 == 0) break;
+    // 가짜 라인 3번 통과하기
+    for (int i = 0; i < 3; i++) {
+        // 선 밟을 때까지 대기
+        while (true) {
+            _motorController.readSensors(s1, s2, s3, s4, s5);
+            if (s3 == 1 || s4 == 1 || s2 == 1) break;
+            delay(5);
+        }
+        // 선 벗어날 때까지 대기 (마지막 3번째는 바로 안착할 수도 있으니 1번만)
+        if (i < 2) {
+            while (true) {
+                _motorController.readSensors(s1, s2, s3, s4, s5);
+                if (s1 == 0 && s2 == 0 && s3 == 0 && s4 == 0 && s5 == 0) break;
+                delay(5);
+            }
+        }
     }
     // 진짜 라인 안착
     while (true) {
         _motorController.readSensors(s1, s2, s3, s4, s5);
         if (s3 == 1 && (s2 == 1 || s4 == 1)) break;
+        delay(5);
     }
     _motorController.stop();
     delay(500);
