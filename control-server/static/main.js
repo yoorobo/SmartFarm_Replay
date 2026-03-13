@@ -607,23 +607,30 @@ function openFullLogsModal() {
 function fetchAgvLogs() {
     const tbody = document.getElementById('full-logs-body');
     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">데이터 불러오는 중...</td></tr>`;
-    fetch(`/api/tasks?limit=20&t=${new Date().getTime()}`)
+    fetch(`/api/agv/activity_logs?limit=20&t=${new Date().getTime()}`)
         .then(res => res.json())
         .then(data => {
-            if (data.ok && data.tasks && data.tasks.length > 0) {
+            if (data.ok && data.logs && data.logs.length > 0) {
                 tbody.innerHTML = "";
-                data.tasks.forEach(task => {
-                    const time = task.created_at ? task.created_at.substring(5, 19).replace('T', ' ') : "-";
-                    const statusVal = task.status || task.task_status;
-                    const statusLabel = statusVal === 2 || statusVal === 'COMPLETED' ? "완료" : (statusVal === 1 ? "진행중" : "대기");
-                    const src = task.source_node || "-";
-                    const dest = task.destination || task.destination_node || "-";
+                data.logs.forEach(log => {
+                    const time = log.action_time ? log.action_time.substring(5, 19).replace('T', ' ') : "-";
+                    const typeId = log.action_type_id;
+                    const detail = log.action_detail || {};
+                    
+                    const taskId = detail.task_id || "-";
+                    const src = detail.src || "-";
+                    const dst = detail.dst || "-";
+                    const statusLabel = typeId === 10 ? "진행중" : "완료";
+                    
+                    // 시작(10)은 초록색 배경(진행중), 완료(11)는 원래 회색 배경
+                    const statusClass = typeId === 10 ? 'badge sys-msg' : 'badge';
+                    
                     tbody.innerHTML += `
                         <tr>
-                            <td><strong>GOTO</strong> (ID: ${task.id || task.task_id})</td>
-                            <td><span class="badge sys-msg">${src.toUpperCase()}</span></td>
-                            <td><span class="badge">${dest.toUpperCase()}</span></td>
-                            <td>${statusLabel}</td>
+                            <td><strong>GOTO</strong> (ID: ${taskId})</td>
+                            <td><span class="badge status-badge">${src.toUpperCase()}</span></td>
+                            <td><span class="badge status-badge">${dst.toUpperCase()}</span></td>
+                            <td><span class="${statusClass}">${statusLabel}</span></td>
                             <td class="time">${time}</td>
                         </tr>
                     `;

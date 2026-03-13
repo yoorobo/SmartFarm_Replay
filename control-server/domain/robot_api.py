@@ -178,9 +178,36 @@ def arm_control():
     if action not in VALID_ACTIONS:
         return jsonify({"ok": False, "error": f"유효하지 않은 action: {action}"}), 400
 
+    # [수정] INBOUND_PICKUP 일 때, S11을 목적지로 하는 입고 작업 즉시 자동 생성 (시뮬레이션 편의성)
+    if action == "INBOUND_PICKUP":
+        from database.db_config import get_db_connection
+        from datetime import datetime
+        conn = None
+        task_id = 0
+        try:
+            conn = get_db_connection()
+            with conn.cursor() as cursor:
+                cursor.execute("INSERT IGNORE INTO agv_robots (agv_id, status_id) VALUES (%s, 1)", (robot_id,))
+                cursor.execute("""
+                    INSERT INTO transport_tasks 
+                    (agv_id, variety_id, source_node, destination_node, ordered_by, quantity, task_status, ordered_at) 
+                    VALUES (%s, 1, 'a01', 's11', 1, 1, 0, %s)
+                """, (robot_id, datetime.now()))
+                task_id = cursor.lastrowid
+            conn.commit()
+            print(f"📦 [입고명령] 자동 배치: Task {task_id} (A01 -> S11) 생성 완료")
+        except Exception as e:
+            print(f"❌ DB 입고명령 자동 생성 오류: {e}")
+        finally:
+            if conn:
+                conn.close()
+
     cmd = {"cmd": "TASK", "action": action}
     if send_to_robot(robot_id, cmd):
-        return jsonify({"ok": True, "message": f"암/그리퍼 명령 '{action}' 전송 완료"})
+        msg = f"암/그리퍼 명령 '{action}' 전송 완료"
+        if action == "INBOUND_PICKUP" and locals().get('task_id'):
+             msg += f" (Task ID: {task_id} 생성)"
+        return jsonify({"ok": True, "message": msg})
     return jsonify({"ok": False, "error": "연결된 로봇이 없습니다."}), 503
 
 
@@ -199,3 +226,34 @@ def get_robot_state():
         })
         
     return jsonify({"ok": False, "error": "데이터 없음"}), 404
+@robot_bp.route('/api/agv/activity_logs')
+def get_agv_activity_logs():
+    """AGV 활동 기록 (상태 변경 이벤트) 조회"""
+    from database.db_config import get_db_connection
+    limit = request.args.get('limit', 20, type=int)
+    agv_id = request.args.get('agv_id', 'R01')
+    
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # action_type_id 10(시작), 11(완료) 필터링
+            cursor.execute("""
+                SELECT log_id, action_type_id, target_id as agv_id, action_detail, action_time 
+                FROM user_action_logs 
+                WHERE action_type_id IN (10, 11) AND target_id = %s
+                ORDER BY log_id DESC LIMIT %s
+            """, (agv_id, limit))
+            logs = cursor.fetchall()
+            
+            for l in logs:
+                if l['action_time']:
+                    l['action_time'] = l['action_time'].isoformat()
+                # action_detail이 JSON 문자열이면 파싱
+                if isinstance(l['action_detail'], str):
+                    try:
+                        l['action_detail'] = json.loads(l['action_detail'])
+                    except:
+                        pass
+            return jsonify({"ok": True, "logs": logs})
+    finally:
+        conn.close()

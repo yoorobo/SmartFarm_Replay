@@ -176,23 +176,52 @@ def control_sensor():
 
 @env_bp.route('/api/logs/inout')
 def get_inout_logs():
-    """입출고 관련 로그 (A01, A04 노드 관련 운송 작업)"""
+    """입출고 관련 로그 (user_action_logs 기반 실제 진행/완료 기록)"""
     from database.db_config import get_db_connection
     limit = request.args.get('limit', 20, type=int)
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
-                SELECT task_id, source_node, destination_node, task_status, ordered_at as time,
-                       CASE WHEN source_node = 'a01' THEN '입고' ELSE '출고' END as type
-                FROM transport_tasks 
-                WHERE source_node IN ('a01', 'a04') OR destination_node IN ('a01', 'a04')
-                ORDER BY task_id DESC LIMIT %s
-            """, (limit,))
+                SELECT log_id, action_detail, action_type_id, action_time as time
+                FROM user_action_logs 
+                WHERE action_type_id IN (10, 11)
+                ORDER BY log_id DESC LIMIT %s
+            """, (limit * 2,))  # Fetch more to allow for filtering
+            
             rows = cursor.fetchall()
+            result = []
             for r in rows:
                 if r['time']: r['time'] = r['time'].isoformat()
-            return jsonify({"ok": True, "logs": rows})
+                
+                # Parse action_detail JSON
+                try:
+                    detail = json.loads(r['action_detail']) if isinstance(r['action_detail'], str) else r['action_detail']
+                    
+                    src = detail.get('src', '').lower()
+                    dst = detail.get('dst', '').lower()
+                    t_id = detail.get('task_id', r['log_id'])
+                    
+                    if src == 'a01':
+                        type_str = '입고'
+                    elif dst == 'a04':
+                        type_str = '출고'
+                    else:
+                        continue # Skip logs that are not Inbound/Outbound
+                        
+                    result.append({
+                        "task_id": t_id,
+                        "type": type_str,
+                        "task_status": 2 if r['action_type_id'] == 11 else 1,
+                        "time": r['time']
+                    })
+                    
+                    if len(result) >= limit:
+                        break
+                except:
+                    pass
+                    
+            return jsonify({"ok": True, "logs": result})
     finally:
         conn.close()
 

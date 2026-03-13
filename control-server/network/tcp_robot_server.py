@@ -5,6 +5,7 @@
 """
 import socket
 import threading
+import json
 import struct
 from datetime import datetime
 from database.db_config import get_db_connection
@@ -125,11 +126,15 @@ def handle_hardware_client(client_socket, addr):
                             next_node_str = idx_to_node_str(next_node_idx)  # None if 0 or invalid
                                 
                             # API용 최신 상태 캐시 저장
+                            # payload[4]에 포함된 task_id (8bit하위) 확인 (실제론 서버 task_id는 더 클 수 있음)
+                            reported_task_id = payload[4] 
+
                             latest_robot_state[agv_db_id] = {
                                 "battery": batt,
                                 "node": node_str,
                                 "next_node": next_node_str,
-                                "loaded": False
+                                "loaded": False,
+                                "current_task_id_low": reported_task_id # 하위 8비트만 저장
                             }
                             
                             # DB 로깅 (current_node FK: farm_nodes.node_id 형식 a01, s06 등)
@@ -201,14 +206,36 @@ def handle_hardware_client(client_socket, addr):
                                 tray_info = cursor.fetchone()
                                 
                                 if tray_info:
+                                    tray_id = tray_info['tray_id']
                                     # 2단계: 이 로봇이 현재 수행 중인(또는 대기 중인) 트레이 관련 운송 작업 찾기
-                                    # PENDING(0) 이나 IN_PROGRESS(1) 인 작업
-                                    cursor.execute("""
-                                        SELECT task_id, source_node, destination_node, task_status 
-                                        FROM transport_tasks 
-                                        WHERE agv_id = %s AND task_status IN (0, 1)
-                                    """, (agv_db_id,))
-                                    active_task = cursor.fetchone()
+                                    # PENDING(0) 이나 IN_PROGRESS(1) 인 작업 중 "가장 최근 것" 선택
+                                    
+                                    # 로봇이 보고한 작업 ID(하위 8비트)와 일치하는 것이 있는지 먼저 검색
+                                    reported_low = latest_robot_state.get(agv_db_id, {}).get("current_task_id_low", -1)
+                                    
+                                    active_task = None
+                                    if reported_low != -1:
+                                        # task_id % 256 == reported_low 조건으로 먼저 검색
+                                        sql = """
+                                            SELECT task_id, source_node, destination_node, task_status 
+                                            FROM transport_tasks 
+                                            WHERE agv_id = %s AND task_status IN (0, 1)
+                                              AND (MOD(task_id, 256) = %s)
+                                            ORDER BY task_id DESC LIMIT 1
+                                        """
+                                        cursor.execute(sql, (agv_db_id, reported_low))
+                                        active_task = cursor.fetchone()
+                                    
+                                    # 만약 일치하는 하위 비트가 없거나 보고된 ID가 없으면 그냥 가장 최신 활성 작업 조회
+                                    if not active_task:
+                                        sql = """
+                                            SELECT task_id, source_node, destination_node, task_status 
+                                            FROM transport_tasks 
+                                            WHERE agv_id = %s AND task_status IN (0, 1)
+                                            ORDER BY task_id DESC LIMIT 1
+                                        """
+                                        cursor.execute(sql, (agv_db_id,))
+                                        active_task = cursor.fetchone()
                                     
                                     if active_task:
                                         t_id = active_task['task_id']
@@ -216,46 +243,86 @@ def handle_hardware_client(client_socket, addr):
                                         src_node = active_task['source_node']
                                         dst_node = active_task['destination_node']
                                         
-                                        # 최신 텔레메트리에서 이 로봇의 위치 짐작 (현재 노드)
-                                        # (임시 방편: DB의 agv_telemetry_logs 가장 최신값 확인)
-                                        cursor.execute("SELECT current_node FROM agv_telemetry_logs WHERE agv_id = %s ORDER BY log_id DESC LIMIT 1", (agv_db_id,))
-                                        last_log = cursor.fetchone()
-                                        curr_node = last_log['current_node'] if last_log else None
+                                        # 현재 위치: DB 쿼리 대신 최신 메모리 상태 사용 (타이밍 문제 방지)
+                                        curr_node = latest_robot_state.get(agv_db_id, {}).get("node")
+                                        if not curr_node:
+                                            # 메모리에 없으면 DB fallback
+                                            cursor.execute("SELECT current_node FROM agv_telemetry_logs WHERE agv_id = %s ORDER BY log_id DESC LIMIT 1", (agv_db_id,))
+                                            last_log = cursor.fetchone()
+                                            curr_node = last_log['current_node'] if last_log else None
                                         
                                         print(f"   -> [상태 검사] 현재AGV위치: {curr_node}, 목적지: {dst_node}, 작업상태: {t_status}")
                                         
-                                        # 시나리오 A: 출발지에서 픽업 확인 (PENDING(0) -> IN_PROGRESS(1))
-                                        if t_status == 0:
-                                            print(f"   -> [픽업 확인] AGV가 출발지({src_node})에서 트레이 탑재 완료. 이동 시작.")
-                                            cursor.execute("UPDATE transport_tasks SET task_status = 1, started_at = %s WHERE task_id = %s", (datetime.now(), t_id))
+                                        # 시나리오 A: 출발지에서 픽업 확인 (PENDING(0) -> IN_PROGRESS(1) 또는 이미 1인데 출발지에서 다시 스캔한 경우)
+                                        is_at_src = (curr_node == src_node)
+                                        is_at_dst = (curr_node == dst_node)
+                                        
+                                        if t_status == 0 or (t_status == 1 and is_at_src):
+                                            print(f"   -> [픽업/시작 확인] AGV가 출발지({src_node})에서 스캔. (Task: {t_id})")
+                                            if t_status == 0:
+                                                cursor.execute("UPDATE transport_tasks SET task_status = 1, started_at = %s WHERE task_id = %s", (datetime.now(), t_id))
+                                            
+                                            # user_action_logs 기록 (작업 시작 로그)
+                                            now_ts = datetime.now()
+                                            log_data = {
+                                                "message": "GOTO", 
+                                                "task_id": t_id,
+                                                "agv_id": agv_db_id,
+                                                "src": src_node,
+                                                "dst": dst_node
+                                            }
+                                            cursor.execute("""
+                                                INSERT INTO user_action_logs (user_id, action_type_id, target_id, action_detail, action_result, action_time)
+                                                VALUES (1, 10, %s, %s, 1, %s)
+                                            """, (agv_db_id, json.dumps(log_data), now_ts))
                                             
                                             # 👉 로봇에게 목적지로 이동 명령(MSG_AGV_TASK_CMD) 하달
-                                            try:
-                                                # 목적지 노드 번호 추출 (예: 's06' -> 6, 'r08' -> 8)
-                                                dst_idx = int(''.join(filter(str.isdigit, dst_node)))
-                                                
-                                                # Payload 구성: [TaskID_H, TaskID_L, Src(0), 0, 0, Dst(dst_idx), 0, 0, 0, 0] (총 10바이트)
-                                                payload = bytearray(10)
-                                                payload[0] = (t_id >> 8) & 0xFF
-                                                payload[1] = t_id & 0xFF
-                                                payload[5] = dst_idx & 0xFF
-                                                
-                                                # 시퀀스는 임시로 0 사용 (로봇 펌웨어에선 현재 크게 체크 안함)
-                                                task_pkt = build_packet(MSG_AGV_TASK_CMD, ID_SERVER, src_id, 0, bytes(payload))
-                                                client_socket.sendall(task_pkt)
-                                                print(f"   -> [명령 하달] 로봇 {src_id:02X}에게 {dst_node}(Idx:{dst_idx})로 이동 명령 전송 완료!")
-                                            except Exception as e:
-                                                print(f"   -> [명령 하달 실패] 패킷 전송 오류: {e}")
+                                            if t_status == 0:
+                                                try:
+                                                    dst_idx = int(''.join(filter(str.isdigit, dst_node)))
+                                                    payload = bytearray(10)
+                                                    payload[0] = (t_id >> 8) & 0xFF
+                                                    payload[1] = t_id & 0xFF
+                                                    payload[5] = dst_idx & 0xFF
+                                                    task_pkt = build_packet(MSG_AGV_TASK_CMD, ID_SERVER, src_id, 0, bytes(payload))
+                                                    client_socket.sendall(task_pkt)
+                                                    print(f"   -> [명령 하달] 로봇 {src_id:02X}에게 {dst_node}(Idx:{dst_idx})로 이동 명령 전송!")
+                                                except Exception as e:
+                                                    print(f"   -> [명령 하달 실패] 패킷 전송 오류: {e}")
                                             
                                         # 시나리오 B: 목적지에서 하차 확인 (IN_PROGRESS(1) -> DONE(2))
-                                        elif t_status == 1:
-                                            # (실제로는 curr_node == dst_node 여부도 검사해야 하나, 단순화)
-                                            print(f"   -> [도착/하차 확인] AGV가 목적지({dst_node})에 트레이 안착 완료. (Task: {t_id})")
-                                            cursor.execute("UPDATE transport_tasks SET task_status = 2, completed_at = %s WHERE task_id = %s", (datetime.now(), t_id))
+                                        elif t_status == 1 and is_at_dst:
+                                            print(f"   -> [도착/하차 확인] AGV가 목적지({dst_node})에서 스캔. (Task: {t_id})")
+                                            now_ts = datetime.now()
+                                            cursor.execute("UPDATE transport_tasks SET task_status = 2, completed_at = %s WHERE task_id = %s", (now_ts, t_id))
                                             # 빈자리 1개 채움 기록
                                             cursor.execute("UPDATE farm_nodes SET current_quantity = current_quantity + 1 WHERE node_id = %s", (dst_node,))
                                             # 트레이 상태 GROWING(5) 으로 업데이트
                                             cursor.execute("UPDATE trays SET tray_status = 1, growth_stage = 5 WHERE nfc_uid = %s", (scanned_uid,))
+
+                                            # user_action_logs 기록 (작업 종료 로그)
+                                            log_data = {
+                                                "message": "GOTO", 
+                                                "task_id": t_id,
+                                                "agv_id": agv_db_id,
+                                                "src": src_node,
+                                                "dst": dst_node
+                                            }
+                                            cursor.execute("""
+                                                INSERT INTO user_action_logs (user_id, action_type_id, target_id, action_detail, action_result, action_time)
+                                                VALUES (1, 11, %s, %s, 1, %s)
+                                            """, (agv_db_id, json.dumps(log_data), now_ts))
+
+                                            # [추가] 시나리오 자동 연동: S11(입고) 완료 시 A04(출고) 작업 자동 생성
+                                            if dst_node == 's11' and src_node == 'a01':
+                                                print(f"   -> [자동 배차] 입고 완료에 따른 출고(S11->A04) 작업 자동 생성")
+                                                cursor.execute("""
+                                                    INSERT INTO transport_tasks 
+                                                    (agv_id, variety_id, source_node, destination_node, ordered_by, quantity, task_status, ordered_at) 
+                                                    VALUES (%s, 1, 's11', 'a04', 1, 1, 0, %s)
+                                                """, (agv_db_id, datetime.now()))
+                                        else:
+                                            print(f"   -> [무시] 스캔 노드({curr_node})가 작업 경로(출발:{src_node}, 목적:{dst_node})와 일치하지 않거나 이미 완료된 상태입니다.")
                                             
                                     else:
                                         print("   -> 할당된 작업이 없는 상태에서 스캔되었습니다.")
