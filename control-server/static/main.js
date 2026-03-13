@@ -665,8 +665,18 @@ function fetchInOutLogs() {
 
 function fetchNurseryLogs() {
     const tbody = document.getElementById('nursery-logs-body');
-    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">데이터 불러오는 중...</td></tr>`;
-    fetch(`/api/logs/nursery?limit=20&t=${new Date().getTime()}`)
+    const nodeId = document.getElementById('filter-nursery-node').value;
+    const startDate = document.getElementById('filter-nursery-start').value;
+    const endDate = document.getElementById('filter-nursery-end').value;
+
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">데이터 불러오는 중...</td></tr>`;
+
+    let url = `/api/logs/nursery?limit=50&t=${new Date().getTime()}`;
+    if (nodeId && nodeId !== 'all') url += `&node_id=${nodeId}`;
+    if (startDate) url += `&start_date=${startDate}`;
+    if (endDate) url += `&end_date=${endDate}`;
+
+    fetch(url)
         .then(res => res.json())
         .then(data => {
             if (data.ok && data.logs && data.logs.length > 0) {
@@ -674,16 +684,19 @@ function fetchNurseryLogs() {
                 data.logs.forEach(log => {
                     const time = log.time ? log.time.substring(5, 19).replace('T', ' ') : "-";
                     const typeClass = log.type === 'CONTROL' ? 'cmd-out' : 'sys-msg';
+                    const node = log.node_id || "-";
+
                     tbody.innerHTML += `
                         <tr>
                             <td><span class="badge ${typeClass}">${log.type}</span></td>
+                            <td><span class="badge status-badge">${node.toUpperCase()}</span></td>
                             <td>${log.msg}</td>
                             <td class="time">${time}</td>
                         </tr>
                     `;
                 });
             } else {
-                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">기록이 없습니다.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">기록이 없습니다.</td></tr>`;
             }
         });
 }

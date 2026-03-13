@@ -199,40 +199,74 @@ def get_inout_logs():
 
 @env_bp.route('/api/logs/nursery')
 def get_nursery_logs():
-    """육묘장 통합 로그 (센서 샘플 + 수동 제어)"""
+    """육묘장 통합 로그 (센서 샘플 + 수동 제어) + 필터링 지원"""
     from database.db_config import get_db_connection
     limit = request.args.get('limit', 20, type=int)
+    node_id = request.args.get('node_id')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    # 필터 조건 동적 빌드
+    where_clauses = []
+    params = []
+
+    if node_id and node_id.lower() != 'all':
+        where_clauses.append("nc.node_id = %s")
+        params.append(node_id.upper())
+    
+    if start_date:
+        where_clauses.append("logged_at >= %s") # SENSOR 쿼리용 measured_at은 아래 UNION에서 처리
+        params.append(f"{start_date} 00:00:00")
+    
+    if end_date:
+        where_clauses.append("logged_at <= %s")
+        params.append(f"{end_date} 23:59:59")
+
+    # WHERE 절 생성 (CONTROL용)
+    where_control = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+    # SENSOR용은 필드명이 다르므로 따로 처리
+    where_sensor_clauses = [c.replace('logged_at', 'measured_at') for c in where_clauses]
+    where_sensor = " WHERE " + " AND ".join(where_sensor_clauses) if where_sensor_clauses else ""
+
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            # 수동 제어 + 센서 샘플을 통합하여 최신순 정렬
-            # 간단하게 연산자 로그와 센서 평균 로그를 섞어서 출력
-            cursor.execute("""
+            # UNION ALL 내부 쿼리에 필터 적용 (각각 limit 적용 전 단계에서 필터링 필요)
+            query = f"""
                 SELECT * FROM (
-                    (SELECT 'CONTROL' as type, logged_at as time, 
-                            CONCAT(nc.node_id, ' ', CASE na.actuator_type_id WHEN 1 THEN '밸브' WHEN 2 THEN '팬' ELSE 'LED' END, ' ', state_value) as msg
+                    (SELECT 'CONTROL' as type, nc.node_id, logged_at as time, 
+                            CONCAT(CASE na.actuator_type_id WHEN 1 THEN '밸브' WHEN 2 THEN '팬' ELSE 'LED' END, ' ', state_value) as msg
                      FROM nursery_actuator_logs nal
                      JOIN nursery_actuators na ON nal.actuator_id = na.actuator_id
                      JOIN nursery_controllers nc ON na.controller_id = nc.controller_id
-                     ORDER BY nal.log_id DESC LIMIT %s)
+                     {where_control}
+                     ORDER BY nal.log_id DESC LIMIT 100)
                     UNION ALL
-                    (SELECT 'SENSOR' as type, measured_at as time,
-                            CONCAT(nc.node_id, 
-                                   MAX(CASE WHEN ns.sensor_type_id = 1 THEN CONCAT(' 온도:', value, '℃') ELSE '' END),
+                    (SELECT 'SENSOR' as type, nc.node_id, measured_at as time,
+                            CONCAT(MAX(CASE WHEN ns.sensor_type_id = 1 THEN CONCAT(' 온도:', value, '℃') ELSE '' END),
                                    MAX(CASE WHEN ns.sensor_type_id = 2 THEN CONCAT(' 습도:', value, CHAR(37)) ELSE '' END),
                                    MAX(CASE WHEN ns.sensor_type_id = 3 THEN CONCAT(' 광량:', value, 'lx') ELSE '' END)) as msg
                      FROM nursery_sensor_logs nsl
                      JOIN nursery_sensors ns ON nsl.sensor_id = ns.sensor_id
                      JOIN nursery_controllers nc ON ns.controller_id = nc.controller_id
+                     {where_sensor}
                      GROUP BY nc.node_id, measured_at
-                     ORDER BY measured_at DESC LIMIT %s)
+                     ORDER BY measured_at DESC LIMIT 100)
                 ) combined
                 ORDER BY time DESC LIMIT %s
-            """, (limit // 2, limit // 2, limit))
+            """
+            
+            # 파라미터 합치기 (CONTROL 0~3개, SENSOR 0~3개, 그리고 마지막 LIMIT)
+            all_params = params + params + [limit]
+            cursor.execute(query, all_params)
+            
             rows = cursor.fetchall()
             for r in rows:
                 if r['time']: r['time'] = r['time'].isoformat()
             return jsonify({"ok": True, "logs": rows})
+    except Exception as e:
+        print(f"Log Filter Error: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
     finally:
         conn.close()
 

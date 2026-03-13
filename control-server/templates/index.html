@@ -320,10 +320,34 @@
                 </div>
                 <!-- Nursery Logs -->
                 <div id="tab-nursery" class="tab-content hidden">
+                    <div class="log-filters" style="display: flex; gap: 10px; margin-bottom: 15px; align-items: flex-end; flex-wrap: wrap; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px;">
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 12px; color: #8b949e;">육묘장 선택</label>
+                            <select id="filter-nursery-node" style="background: #30363d; color: white; border: 1px solid #484f58; border-radius: 4px; padding: 6px 10px;">
+                                <option value="all">전체</option>
+                                <option value="S11">S11</option>
+                                <option value="S12">S12</option>
+                                <option value="S13">S13</option>
+                                <option value="R14">R14</option>
+                                <option value="R15">R15</option>
+                                <option value="R16">R16</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 12px; color: #8b949e;">시작 날짜</label>
+                            <input type="date" id="filter-nursery-start" style="background: #30363d; color: white; border: 1px solid #484f58; border-radius: 4px; padding: 5px 10px;">
+                        </div>
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 12px; color: #8b949e;">종료 날짜</label>
+                            <input type="date" id="filter-nursery-end" style="background: #30363d; color: white; border: 1px solid #484f58; border-radius: 4px; padding: 5px 10px;">
+                        </div>
+                        <button class="btn btn-action" onclick="fetchNurseryLogs()" style="padding: 7px 15px; font-size: 13px;">필터 적용</button>
+                    </div>
                     <table class="logs-table">
                         <thead>
                             <tr>
                                 <th>유형</th>
+                                <th>육묘장</th>
                                 <th>내용</th>
                                 <th>시간</th>
                             </tr>
