@@ -10,15 +10,15 @@
 
 ### 현장 언어로 설계된 시스템
 
-조경기능사(2024)와 버섯종균기능사(2024) 취득 과정에서 식물의 생육 임계값과 실제 농장 환경의 변수를 직접 공부했습니다. 이 경험이 제어 로직에 직접 반영됩니다.
+조경기능사(2024)와 버섯종균기능사(2024) 취득 과정에서 식물의 생육 임계값과 실제 농장 환경의 변수에 대한 이해가 제어 로직설계에 도움이 되었습니다.
 
-- `farm_env_manager.py`의 목표 온도(20~28°C)·목표 습도(50~70%) 기본값은 육묘장 환경에서 검증된 생육 임계값에서 도출됐습니다.
+- `farm_env_manager.py`의 목표 온도(20 ~ 28°C)·목표 습도(50 ~ 70%) 기본값은 육묘장 환경에서 검증된 생육 임계값에서 도출됐습니다.
 - DB 스키마(`seedling_varieties`)에는 품종별 `opt_temp_day`, `opt_temp_night`, `opt_humidity`, `opt_ec`, `opt_ph`, `opt_light_dli`가 설계되어, RFID 스캔 시 해당 구역 노드의 제어 파라미터가 **품종에 맞게 자동 전환**됩니다.
 - 밀폐 육묘장의 Wi-Fi 노이즈와 수분·전자기 간섭을 고려한 것이 Binary Protocol 선택의 실질적 배경입니다.
 
 ### 데이터 무결성 철학
 
-20년 네트워크 인프라 설계 내공을 투입했습니다. JSON 기반 통신에서 Custom Binary Protocol로의 전환은 기술 유행이 아니라 현장 신뢰성 요구에서 나온 결정입니다.
+JSON 기반 통신에서 Custom Binary Protocol로의 전환은 기술 유행이 아니라 현장 신뢰성 요구에서 나온 결정입니다.
 
 ![HW Architecture](./assets/HW_architecture.png)
 | 비교 항목 | JSON 방식 | SFAM Binary v1.0 |
@@ -33,18 +33,7 @@
 
 ## 시스템 아키텍처
 ![SW Architecture](./assets/SW_architecture.png)
-```
-┌─────────────────────────────┐
-│ 중앙 제어 서버 │
-웹 대시보드 ─ HTTP:5001 ─┤ Flask + TCP:8000 + UDP:7070 ├─ MySQL (AWS EC2)
-│ SystemController (DI) │
-└──────┬──────────┬────────────┘
-│ TCP │ UDP
-┌────────────┘ └────────────┐
-AGV (ESP32) 육묘장 (ESP32)
-SFAM Binary Protocol SFAM Binary Protocol
-라인트레이싱 + RFID 온습도·조도 + 액추에이터
-```
+
 
 ### 레이어별 구성
 
